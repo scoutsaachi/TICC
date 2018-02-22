@@ -67,7 +67,7 @@ class NullHMM(HMM):
         np.fill_diagonal(r, 0) # no cost to go to same cluster
         return r
     
-    def getMostLikely(self, ts):
-        return np.argmin(self.viterbiGrid[ts])
+    def getMostLikelyScore(self, ts):
+        return np.min(self.viterbiGrid[ts])
 
 

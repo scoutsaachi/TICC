@@ -9,16 +9,12 @@ def GenerateFakeData(breakpoints, confidenceMean, confidenceVariance, numCluster
     '''
     assert len(breakpoints) > 2
     r = [(-1, -1, -1)]*breakpoints[0]
-    labels = ['_']*breakpoints[0]
     for i in range(1, len(breakpoints) - 1):
         identifier = i-1
         r += [(identifier, confidenceMean, confidenceVariance)] * breakpoints[i]
-        label = chr(ord('A') + identifier)
-        labels += [label]*breakpoints[i]
     r += [(-1, -1, -1)]*breakpoints[-1]
-    labels += ['_']*breakpoints[1]
     likelihood = GenerateLikelihoods(r, numClusters)
-    return likelihood, labels
+    return likelihood
 
 
 def GenerateLikelihoods(assignments, numClusters):
@@ -37,7 +33,7 @@ def GenerateLikelihoods(assignments, numClusters):
         else:
             a = np.random.rand(numClusters)
             a[c] = 0
-            val = min(1, np.random.normal(p, v))
+            val = min(0.99, np.random.normal(p, v))
             rest = 1-val
             a = rest*a/np.sum(a)
             a[c] = val
