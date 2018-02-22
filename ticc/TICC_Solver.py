@@ -15,8 +15,8 @@ import pandas as pd
 
 from multiprocessing import Pool
 
-from src.TICC_helper import *
-from src.admm_solver import ADMMSolver
+from ticc.TICC_helper import *
+from ticc.admm_solver import ADMMSolver
 #######################################################################################################################################################################
 pd.set_option('display.max_columns', 500)
 np.set_printoptions(formatter={'float': lambda x: "{0:0.4f}".format(x)})

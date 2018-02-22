@@ -11,7 +11,6 @@ class HMM:
         self.n = np.shape(llMatrix)[0] # of time steps
         self.m = np.shape(llMatrix)[1] # of clusters
         self.initialCosts = np.full(m, 0) if initialCosts is None else initialCosts # initial costs
-
         self.viterbiGrid = np.zeros((n,m)) # contains probabilities that will be filled by row
         self.backPointers = np.zeros((n,m)) # contains the back pointers for the viterbi path
         self.backPointers[0].fill(-1)
