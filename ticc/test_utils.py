@@ -16,7 +16,7 @@ def GenerateFakeData(breakpoints, confidenceMean, confidenceVariance, numCluster
         label = chr(ord('A') + identifier)
         labels += [label]*breakpoints[i]
     r += [(-1, -1, -1)]*breakpoints[-1]
-    labels += ['_']*breakpoints[0]
+    labels += ['_']*breakpoints[1]
     likelihood = GenerateLikelihoods(r, numClusters)
     return likelihood, labels
 

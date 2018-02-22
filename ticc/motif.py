@@ -20,13 +20,14 @@ class HMM:
 
     def UpdateStep(self, ts):
         if ts == 0:
-            self.viterbiGrid = self.initialCosts + self.llMatrix[0]
+            self.viterbiGrid[0] = self.initialCosts + self.llMatrix[0]
             return
         prevCosts = np.reshape(self.viterbiGrid[ts - 1], (self.m,1)) # get the costs from the timestamp before
         withSwitchingCosts = prevCosts + self.adjacencyMatrix
         # we want the min value for each row 
         indices = np.argmin(withSwitchingCosts, axis=0) # backpointers
-        newRow = x[indices, self.m] + self.llMatrix[ts] # the new ll
+        maxvals =  withSwitchingCosts[indices, np.arange(self.m)]
+        newRow = maxvals + self.llMatrix[ts] # the new ll
         self.viterbiGrid[ts] = newRow
         self.backPointers[ts] = indices
 
@@ -50,6 +51,10 @@ class MotifHMM(HMM):
         np.fill_diagonal(r, 0) # costs nothing to go to same cluster
         np.fill_diagonal(r[:,1:], beta ) # allow transitions to the next state
         return r
+    
+    def getEndingScore(self, ts):
+        ''' return log likelihood of ending at a specific ts '''
+        return -1 * self.viterbiGrid[ts, -1]
 
 class NullHMM(HMM):
     def __init__(self, llMatrix, beta):
@@ -61,12 +66,8 @@ class NullHMM(HMM):
         r = np.full((numStates, numStates), beta)
         np.fill_diagonal(r, 0) # no cost to go to same cluster
         return r
+    
+    def getMostLikely(self, ts):
+        return np.argmin(self.viterbiGrid[ts])
 
-def test():
-    breakpoints = [2, 2, 2, 2, 2] # A, B, C
-    numClusters = 4 # A, B, C, D
-    ll, labels = GenerateFakeData(breakpoints, 0.75, 0.05, numClusters)
-    hmm = MotifHMM(ll, np.array([0,1,2]),0)
-
-test()
 
