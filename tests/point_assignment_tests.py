@@ -24,7 +24,8 @@ scoringDict = [
 
 def test(breakpoints, confidenceMean, confidenceVariance, numClusters, T):
     ll = GenerateFakeData(breakpoints, confidenceMean, confidenceVariance, numClusters)
-    motif_hmm = MotifHMM(ll, np.array([0,1,2]),0)
+    motif = [i for i in range(len(breakpoints) - 2)]
+    motif_hmm = MotifHMM(ll, np.array(motif),0)
     null_hmm = NullHMM(ll, 0)
     scores = []
     for i in range(len(scoringDict)):
@@ -38,7 +39,25 @@ def test(breakpoints, confidenceMean, confidenceVariance, numClusters, T):
             scores[j].append(score)
     return scores
 
-def plotSequence(scores, labels, breakpoints, title, idx):
+def testGarbage(breakpoints, confidenceMean, confidenceVariance, numClusters):
+    ll = GenerateFakeData(breakpoints, confidenceMean, confidenceVariance, numClusters)
+    motif = [i for i in range(len(breakpoints) - 2)]
+    g_hmm = GarbageHMM(ll, motif, 0, 1)
+    labels = GenerateLabels(breakpoints)
+    T = len(labels)
+    for i in range(T):
+        g_hmm.UpdateStep(i)
+    print g_hmm.GenerateSequenceFromBackPointer(84, 4)
+    assert False
+    div = np.arange(1, T+1)
+    scores = [g_hmm.viterbiGrid.T[-1]/div, g_hmm.viterbiGrid.T[1]/div]
+    title = "garbage"
+    plotSequence(scores, labels, breakpoints, title)
+
+
+    
+
+def plotSequence(scores, labels, breakpoints, title):
     '''
     scores is a list of lists (which are the lines to plot)
     '''
@@ -70,7 +89,7 @@ def GenerateLabels(breakpoints):
 def testMultiple(iterations):
     # input params
     breakpoints = [50, 10, 10, 10, 10] # A, B, C
-    confidenceMean = 0.5
+    confidenceMean = 0.75
     confidenceVariance = 0.1
     numClusters = 4 # A, B, C, D
 
@@ -89,6 +108,7 @@ def testMultiple(iterations):
     for i in range(len(scoringDict)):
         fnName = scoringDict[i][0]
         title = "%s: %s" % (fnName, toStr)
-        plotSequence(results[i], labels, breakpoints, title, i+1)
-    plt.show()
+        plotSequence(results[i], labels, breakpoints, title)
+
 testMultiple(5)
+# testGarbage([50, 10, 10, 10, 10], 0.75, 0.1, 4)

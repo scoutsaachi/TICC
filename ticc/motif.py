@@ -30,6 +30,16 @@ class HMM:
         newRow = maxvals + self.llMatrix[ts] # the new ll
         self.viterbiGrid[ts] = newRow
         self.backPointers[ts] = indices
+    
+    def GenerateSequenceFromBackPointer(self, ts, ending):
+        # ts is the ending index
+        seq = [ending]
+        currStage = ending
+        for i in range(ts, 0, -1):
+            # going backward, skipping first pointer
+            currStage = int(self.backPointers[i][currStage])
+            seq = [currStage] + seq
+        return seq
 
 class MotifHMM(HMM):
     def __init__(self, llMatrix, motif, beta):
@@ -40,13 +50,13 @@ class MotifHMM(HMM):
         '''
         self.motif = motif
         numStates = len(motif)
-        adjacencyMatrix = self.createAdjacencyMatrix(motif, numStates, beta)
+        adjacencyMatrix = self.createAdjacencyMatrix(numStates, beta)
         initCosts = np.full(numStates, np.infty)
         initCosts[0] = 0
         ll = np.take(llMatrix, motif, axis=1) # grab only the relevant likelihoods
         HMM.__init__(self, adjacencyMatrix, ll, initCosts)
     
-    def createAdjacencyMatrix(self, motif, numStates, beta):
+    def createAdjacencyMatrix(self, numStates, beta):
         r = np.full((numStates, numStates), np.infty)
         np.fill_diagonal(r, 0) # costs nothing to go to same cluster
         np.fill_diagonal(r[:,1:], beta ) # allow transitions to the next state
@@ -70,4 +80,34 @@ class NullHMM(HMM):
     def getMostLikelyScore(self, ts):
         return np.min(self.viterbiGrid[ts])
 
+class GarbageHMM(HMM):
+    def __init__(self, llMatrix, motif, beta, out_motif_beta):
+        '''
+        This is the HMM for the motifs that has garbage on each side
+        @params
+        motif - a list of IDs that represent the motif, i.e [0,1,0,2]
+        beta is motif switching penalty
+        out_motif_beta is the cost of switching out of a motif
+        '''
+        self.motif = motif
+        numStates = len(motif) + 2 # add extra motif states
+        adjacencyMatrix = self.createAdjacencyMatrix(numStates, beta, out_motif_beta)
+        ll = self.createLikelihoodMatrix(llMatrix, motif)
+        initCosts = np.full(numStates, np.infty)
+        initCosts[0] = 0
+        HMM.__init__(self, adjacencyMatrix, ll, initCosts)
 
+    def createAdjacencyMatrix(self, numStates, beta, out_motif_beta):
+        r = np.full((numStates, numStates), np.infty)
+        np.fill_diagonal(r, 0) # costs nothing to go to same cluster
+        np.fill_diagonal(r[:,1:], beta ) # allow transitions to the next state within motif
+        r[-2][-1] = out_motif_beta # cost of getting out of the motif
+        r[0][0] = 0.1
+        r[-1][-1] = 0.1
+        # r[0][1] = 0
+        return r
+    
+    def createLikelihoodMatrix(self, llMatrix, motif):
+        ll = np.take(llMatrix, motif, axis=1)
+        garbageCol = np.min(llMatrix, axis=1)
+        return np.c_[garbageCol, ll, garbageCol]
