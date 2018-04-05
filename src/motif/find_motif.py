@@ -1,8 +1,12 @@
-from rstr_suffix.rstr_max import Rstr_max
+from rstr_suffix.rstr_max import GetMotifs
 # https://code.google.com/archive/p/py-rstr-max/
 # TODO: cite
 
 def FindMotifs(sequence):
+    orig_indices, collapsed = Collapse(sequence)
+    
+    motif_results = GetMotifs(''.join(sequence))
+    print motif_results
     pass
 
 def Collapse(sequence):
@@ -23,5 +27,6 @@ def Collapse(sequence):
     assert len(currSeg) == 1
     currSeg.append(len(sequence) - 1)
     start_end_indices.append(tuple(currSeg))
-    print start_end_indices
-    print collapsedString
+    return start_end_indices, collapsedString
+
+FindMotifs('aaabbbbccccdddd')
