@@ -1,6 +1,9 @@
 import numpy as np 
 
 class HMM:
+    '''
+    Add distance probabilities
+    '''
 
     def __init__(self, adjacencyMatrix, negLLMatrix, initDistribution):
         '''
@@ -60,18 +63,17 @@ class HMM:
         return self.viterbiGrid[-1, state]
 
 class MotifHMM(HMM):
-    def __init__(self, negLLMatrix, motif, numStates, gamma):
+    def __init__(self, negLLMatrix, motif, gamma):
         '''
         construct HMM for motif model
         @params
         negLLMatrix: the negative log likelihood matrix per state
         motif: a list of cluster indices that are the motif. i.e [0,1,0] is A^* B^* A^*
-        numStates: the number of states from the original model (that the LL was based off of)
         '''
         self.motif = motif
         self.gamma = gamma
         adjacencyMatrix = self.createAdjacencyMatrix(motif)
-        negLLMatrix, initDistribution = self.createNegLLMatrix(negLLMatrix, numStates, motif)
+        negLLMatrix, initDistribution = self.createNegLLMatrix(negLLMatrix, motif)
         # print negLLMatrix
         # assert False
         HMM.__init__(self,adjacencyMatrix, negLLMatrix, initDistribution)
@@ -88,7 +90,7 @@ class MotifHMM(HMM):
         adj[-1, 0] = 0 # allow last state to go back to garbage
         return adj
 
-    def createNegLLMatrix(self, negLLMatrix, numStates, motif):
+    def createNegLLMatrix(self, negLLMatrix, motif):
         '''
         Create the actual nxeg ll matrix for the motif by extracting out the 
         relative likelihood cols and adding a garbage cols (which is col 0)
@@ -119,7 +121,7 @@ class MotifHMM(HMM):
         else:
             result = self.GenerateSequenceFromBackPointer(ending=lastStage)
         result = np.array(result) - 1 #offset so that garbage is -1
-        return result -1, self.SplitAndGetLikelihood(result)
+        return result, self.SplitAndGetLikelihood(result)
     
     def SplitAndGetLikelihood(self, sequence):
         # motif list: (index, change, ..., end): likelihood

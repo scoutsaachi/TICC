@@ -1,6 +1,5 @@
 import numpy as np
 
-
 def getTrainTestSplit(m, num_blocks, num_stacked):
     '''
     - m: number of observations

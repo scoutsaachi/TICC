@@ -27,7 +27,7 @@ def GenerateFakeData(assignments, confidenceMean, confidenceVariance, numCluster
 
 def test(dataAssign, motif, confidenceMean, confidenceVariance, numClusters):
     ll = GenerateFakeData(dataAssign, confidenceMean, confidenceVariance, numClusters)
-    motif_hmm = MotifHMM(ll, motif, numClusters, 0.9)
+    motif_hmm = MotifHMM(ll, motif, 0.9)
     print motif_hmm.SolveAndReturn()
 
 def testAssign1():
