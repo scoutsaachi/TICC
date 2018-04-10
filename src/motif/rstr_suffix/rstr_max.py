@@ -123,14 +123,16 @@ class Rstr_max:
 
 def GetMotifs(sequence):
     '''
-    Given a sequence, return a list of:
-    # (length), [<start_indices>]
+    Given a sequence, return a list of maximal motifs with 
+    length greater than 1
+    Returns: [(motif length), [<start_indices>]]
     '''
     rstr = Rstr_max()
     rstr.add_str(sequence)
     r = rstr.go()
     result = []  # (word_index_start, word_index_end)
     for (_, nb), (l, start) in r.iteritems():
+        if l == 1: continue
         occurrences = [rstr.idxPos[rstr.res[o]]
                        for o in range(start, start+nb)]
         result.append((l, occurrences))
@@ -138,5 +140,5 @@ def GetMotifs(sequence):
 
 
 if (__name__ == '__main__'):
-    str1 = [1, 1, 2, 3, 1, 1, 2, ]
+    str1 = [4, 1, 2, 3, 1, 2, 3, 4]
     print GetMotifs(str1)

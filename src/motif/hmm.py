@@ -1,8 +1,10 @@
-import numpy as np 
+import numpy as np
+
+# TODO Add distance probabilities
+
 
 class HMM:
     '''
-    Add distance probabilities
     '''
 
     def __init__(self, adjacencyMatrix, negLLMatrix, initDistribution):
@@ -19,26 +21,27 @@ class HMM:
         self.adjacencyMatrix = adjacencyMatrix
         self.negLLMatrix = negLLMatrix
         self.initDistribution = initDistribution
-        self.viterbiGrid = np.zeros((self.n, self.m)) # dp grid
-        self.backPointers = np.full((self.n, self.m), -1) # backpointer grid
-    
+        self.viterbiGrid = np.zeros((self.n, self.m))  # dp grid
+        self.backPointers = np.full((self.n, self.m), -1)  # backpointer grid
+
     def UpdateStep(self, ts):
         '''
         Update the ts column of the viterbi grid
         '''
-        if ts == 0: # this is the first column
+        if ts == 0:  # this is the first column
             self.viterbiGrid[0] = self.initDistribution + self.negLLMatrix[0]
             return
-        prevCosts = np.reshape(self.viterbiGrid[ts - 1], (self.m,1)) # the previous costs
+        # the previous costs
+        prevCosts = np.reshape(self.viterbiGrid[ts - 1], (self.m, 1))
         # compute costs going to j assuming you are starting at i
         withSwitchingCosts = prevCosts + self.adjacencyMatrix
-        indices = np.argmin(withSwitchingCosts, axis=0) # backpointers
+        indices = np.argmin(withSwitchingCosts, axis=0)  # backpointers
         maxvals = withSwitchingCosts[indices, np.arange(self.m)]
         indices[maxvals == np.infty] = -1
-        newRow = maxvals + self.negLLMatrix[ts] # the new costs
+        newRow = maxvals + self.negLLMatrix[ts]  # the new costs
         self.viterbiGrid[ts] = newRow
         self.backPointers[ts] = indices
-    
+
     def GenerateSequenceFromBackPointer(self, ending=None):
         '''
         Starting from the end to 0, construct the most likely sequence.
@@ -53,14 +56,15 @@ class HMM:
             currStage = int(self.backPointers[i][currStage])
             seq = [currStage] + seq
         return seq
-    
+
     def solveHMM(self):
         for i in range(self.n):
             self.UpdateStep(i)
-    
+
     def getEndingScore(self, state):
         ''' get the last score for the given state'''
         return self.viterbiGrid[-1, state]
+
 
 class MotifHMM(HMM):
     def __init__(self, negLLMatrix, motif, gamma):
@@ -73,11 +77,10 @@ class MotifHMM(HMM):
         self.motif = motif
         self.gamma = gamma
         adjacencyMatrix = self.createAdjacencyMatrix(motif)
-        negLLMatrix, initDistribution = self.createNegLLMatrix(negLLMatrix, motif)
-        # print negLLMatrix
-        # assert False
-        HMM.__init__(self,adjacencyMatrix, negLLMatrix, initDistribution)
-    
+        negLLMatrix, initDistribution = self.createNegLLMatrix(
+            negLLMatrix, motif)
+        HMM.__init__(self, adjacencyMatrix, negLLMatrix, initDistribution)
+
     def createAdjacencyMatrix(self, motif):
         '''
         Create a circular adjacency matrix that has 1 garbage state
@@ -85,9 +88,9 @@ class MotifHMM(HMM):
         '''
         num_motif_states = len(motif) + 1
         adj = np.full((num_motif_states, num_motif_states), np.infty)
-        np.fill_diagonal(adj, 0) # allow transition to the same state
-        np.fill_diagonal(adj[:,1:], 0) # allow transition to the next state
-        adj[-1, 0] = 0 # allow last state to go back to garbage
+        np.fill_diagonal(adj, 0)  # allow transition to the same state
+        np.fill_diagonal(adj[:, 1:], 0)  # allow transition to the next state
+        adj[-1, 0] = 0  # allow last state to go back to garbage
         return adj
 
     def createNegLLMatrix(self, negLLMatrix, motif):
@@ -105,10 +108,15 @@ class MotifHMM(HMM):
         initDistribution = np.full(m, np.infty)
         initDistribution[0:2] = 0
         return np.c_[garbageCol, negLLMatrix], initDistribution
-    
+
     def SolveAndReturn(self):
         '''
-        solve the HMM and return the most likely sequence
+        Solve the HMM and return the most likely sequence
+        
+        Returns
+        --------
+        value1: assignments of each point to a motif state. -1 for garbage
+        value2: for each motif instance, tuple of the form (splitpoints, likelihood score)
         '''
         self.solveHMM()
         # get score for garbage and for last motif
@@ -120,9 +128,9 @@ class MotifHMM(HMM):
             result = self.GenerateSequenceFromBackPointer(ending=0)
         else:
             result = self.GenerateSequenceFromBackPointer(ending=lastStage)
-        result = np.array(result) - 1 #offset so that garbage is -1
+        result = np.array(result) - 1  # offset so that garbage is -1
         return result, self.SplitAndGetLikelihood(result)
-    
+
     def SplitAndGetLikelihood(self, sequence):
         # motif list: (index, change, ..., end): likelihood
         motif_length = len(self.motif)
@@ -137,7 +145,7 @@ class MotifHMM(HMM):
                     currMotif.append(i-1)
                     motifs.append(tuple(currMotif))
                     currMotif = []
-                    if c != -1: # straight beginning of new motif
+                    if c != -1:  # straight beginning of new motif
                         currMotif.append(i)
                 else:
                     currMotif.append(i)
@@ -153,12 +161,8 @@ class MotifHMM(HMM):
             ll_end = self.viterbiGrid[end, motif_length-1]
             ll_prev = 0
             if start != 0:
-                prev = self.backPointers[start, 1] # get the start
+                prev = self.backPointers[start, 1]  # get the start
                 ll_prev = self.viterbiGrid[start-1, prev]
             likelihood = ll_end - ll_prev
             results.append((m, likelihood))
         return results
-            
-
-
-

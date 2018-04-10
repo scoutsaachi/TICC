@@ -1,5 +1,6 @@
 from hmm import MotifHMM
 import numpy as np
+from find_motif import PerformAssignment
 
 def GenerateFakeData(assignments, confidenceMean, confidenceVariance, numClusters):
     '''
