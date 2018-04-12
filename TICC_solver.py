@@ -1,39 +1,29 @@
 import numpy as np
-import math
-import time
 import collections
-import os
-import errno
-import sys
-import code
-import random
-import matplotlib
 import logging
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 
 from scipy import stats
 
-from sklearn import mixture, covariance
-from sklearn.cluster import KMeans
-import pandas as pd
+from sklearn import mixture
 
 from multiprocessing import Pool
 
 from src.TICC_helper import *
+from src.motif.find_motif import PerformAssignment
 from src.admm_solver import ADMMSolver
 #######################################################################################################################################################################
-pd.set_option('display.max_columns', 500)
 np.set_printoptions(formatter={'float': lambda x: "{0:0.4f}".format(x)})
 np.random.seed(102)
 
 #####################################################################################################################################################################################################
 
 # logging.basicConfig(level=logging.DEBUG)
+
+
 class TICCSolver:
     def __init__(self, window_size=10, number_of_clusters=5, lambda_parameter=11e-2,
                  beta=400, maxIters=1000, threshold=2e-5,
-                 input_file=None, num_proc=1):
+                 input_file=None, num_proc=1, gamma=0.9, maxMotifs=None):
         self.window_size = window_size
         self.K = number_of_clusters  # number of clusters
         self.lambda_param = lambda_parameter
@@ -42,6 +32,8 @@ class TICCSolver:
         self.threshold = threshold
         self.num_proc = num_proc
         self.cluster_reassignment = 20  # number of points to reassign to a 0 cluster
+        self.gamma = gamma  # aggressiveness of motif
+        self.maxMotifs = maxMotifs  # max num of motifs
         # get the data inflated by window size
         data = np.loadtxt(input_file, delimiter=",")
         m, n = data.shape
@@ -61,11 +53,16 @@ class TICCSolver:
         if self.pool is not None:
             self.pool.close()
             self.pool.join()
-    
-    def PerformFullTICC(self):
+
+    def PerformFullTICC(self, useMotif=False):
         clustered_points = self.getInitialClusteredPoints()
-        clustered_points, train_cluster_inverse = self.solveWithInitialization(clustered_points)
-        return clustered_points, train_cluster_inverse
+        clustered_points, train_cluster_inverse, _ = self.solveWithInitialization(
+            clustered_points, useMotif=False)
+        motifs = None
+        if useMotif:
+            clustered_points, train_cluster_inverse, motifs = self.solveWithInitialization(
+                clustered_points, useMotif=True)
+        return clustered_points, train_cluster_inverse, motifs
 
     def getInitialClusteredPoints(self):
         gmm = mixture.GaussianMixture(
@@ -74,7 +71,8 @@ class TICCSolver:
         clustered_points = gmm.predict(self.complete_data)
         return clustered_points
 
-    def solveWithInitialization(self, clustered_points):
+    def solveWithInitialization(self, clustered_points, useMotif):
+        motifs = None
         assert self.maxIters > 0  # must have at least one iteration
         num_stacked = self.window_size
         beta = self.beta  # switching penalty
@@ -110,6 +108,9 @@ class TICCSolver:
             # Update cluster points
             clustered_points = updateClusters(
                 LLE_all_points_clusters, switch_penalty=beta)
+            if useMotif:
+                clustered_points, motifs = PerformAssignment(
+                    clustered_points, LLE_all_points_clusters, self.gamma, MaxMotifs=self.maxMotifs)
             old_before_zero = clustered_points.copy()
             self.assignToZeroClusters(
                 clustered_points, old_computed_cov, computed_cov, cluster_mean_stacked_info)
@@ -125,7 +126,7 @@ class TICCSolver:
                 break
             old_clustered_points = clustered_points
             # end of training
-        return (clustered_points, train_cluster_inverse)
+        return (clustered_points, train_cluster_inverse, motifs)
 
     def getLikelihood(self, computed_cov, cluster_mean_stacked_info, clustered_points):
         '''

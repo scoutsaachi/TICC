@@ -135,10 +135,11 @@ def GetMotifs(sequence):
         if l == 1: continue
         occurrences = [rstr.idxPos[rstr.res[o]]
                        for o in range(start, start+nb)]
+        occurrences.sort()
         result.append((l, occurrences))
     return result
 
 
 if (__name__ == '__main__'):
-    str1 = [4, 1, 2, 3, 1, 2, 3, 4]
+    str1 = [1, 1, 1, 2, 2, 1, 1]
     print GetMotifs(str1)

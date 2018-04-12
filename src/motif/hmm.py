@@ -116,7 +116,7 @@ class MotifHMM(HMM):
         Returns
         --------
         value1: assignments of each point to a motif state. -1 for garbage
-        value2: for each motif instance, tuple of the form (splitpoints, likelihood score)
+        value2: for each motif instance, tuple of the form (splitpoints, neg log likelihood score)
         '''
         self.solveHMM()
         # get score for garbage and for last motif
