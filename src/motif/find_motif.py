@@ -28,9 +28,9 @@ def PerformAssignment(sequence, negLLMatrix, gamma, MaxMotifs=None):
     motifs = find_motifs(sequence, MaxMotifs)  # find common motifs with scores
     instanceList = []  # list of (score, motif, indices)
     # TODO: perform this in parallel
-    for m, score in motifs:
+    for m, motifIncidenceLengths, score in motifs:
         logscore = np.log(score)
-        motif_hmm = MotifHMM(negLLMatrix, m, gamma)
+        motif_hmm = MotifHMM(negLLMatrix, m, gamma, motifIncidenceLengths)
         _, motifInstances = motif_hmm.SolveAndReturn()  # (changepoints, score)
         for motifIndices, neg_likelihood in motifInstances:
             logodds = computeLogOdds(
@@ -99,7 +99,7 @@ def find_motifs(sequence, maxMotifs=None):
 
     Returns
     -------
-    A list of [(motif), logscore]
+    A list of [(motif, motifIncidenceLengths, logscore)]
     '''
     orig_indices, collapsed = collapse(sequence)
     logFreqProbs = getFrequencyProbs(collapsed)
@@ -107,19 +107,22 @@ def find_motifs(sequence, maxMotifs=None):
     motif_results = GetMotifs(collapsed)  # [(motif length), [<start_indices>]]
     processed_motif_list = []  # score, motif
     for length, incidences in motif_results:
-        newCount = filterOverlapping(incidences, length)
-        if newCount == 1: continue
+        # require that all motifs have at least 2 not overlapping instances
+        if filterOverlapping(incidences, length) == 1:
+            continue
         motif = collapsed[incidences[0]:incidences[0]+length]
-        # TODO get original distances and incorporate them into motif description
-        score = MotifScore(totLength, logFreqProbs, motif, newCount)
-        processed_motif_list.append((score, motif))
+        # matrix containing lengths of the segments of the incidences of the motifs
+        motifIncidenceLengths = inflateMotifLengths(
+            incidences, orig_indices, length)
+        score = MotifScore(totLength, logFreqProbs, motif, len(incidences))
+        processed_motif_list.append((score, motif, motifIncidenceLengths))
     processed_motif_list.sort(reverse=True)  # sort by score
     if maxMotifs:
         processed_motif_list = processed_motif_list[:maxMotifs]
     scores = np.array([s for s, _ in processed_motif_list])
     scores = scores/np.linalg.norm(scores)
-    result = [(processed_motif_list[i][1], scores[i]) for i in range(len(scores))]
-    print result 
+    result = [(processed_motif_list[i][1], processed_motif_list[i][2], scores[i])
+              for i in range(len(scores))]
     return result
 
 
@@ -203,11 +206,39 @@ def getMotifIndepProb(motif, logFreqProbs):
         logscore_indep += logFreqProbs[val]
     return logscore_indep
 
+
 def computeLogOdds(neg_likelihood, motif, motifIndices, logFreqProbs):
     likelihood = -1*neg_likelihood
     expanded_seq = generateExpandedMotif(motif, motifIndices)
     indiv_prob = getMotifIndepProb(expanded_seq, logFreqProbs)
     return likelihood - indiv_prob
+
+
+def inflateMotifLengths(collapsedStartIndices, orig_indices, length):
+    '''
+    Parameters
+    -----------
+    collapsedIndices: the start indices in the collapsed version of each incidence
+    origIndices: an array such that origIndices[i]=(origstart, origend) corresponds
+        to the segment in the original sequence that got mapped to index i in the collapsed sequence
+    length: length of the collapsed motif
+
+    Returns
+    ----------
+    If the collapsed motif is length K, and there are N incidences of the motif,
+    return a N x K matrix A where A[i,j] is the length of the jth motif segment 
+    in incidence i
+    '''
+    N = len(collapsedStartIndices)
+    K = length
+    result = np.zeros(N, K)
+    for i, collapsedStart in enumerate(collapsedStartIndices):
+        for j in range(N):
+            index = collapsedStart + i
+            segment = orig_indices[index]
+            segLength = segment[1] - segment[0] + 1
+            result[i, j] = segLength
+    return result
 
 
 find_motifs([1, 2, 3, 5, 1, 2, 3, 6, 1, 2, 3, 4, 5, 3, 4,

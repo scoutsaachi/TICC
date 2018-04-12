@@ -1,6 +1,5 @@
 from hmm import MotifHMM
 import numpy as np
-from find_motif import PerformAssignment
 
 def GenerateFakeData(assignments, confidenceMean, confidenceVariance, numClusters):
     '''
@@ -28,8 +27,12 @@ def GenerateFakeData(assignments, confidenceMean, confidenceVariance, numCluster
 
 def test(dataAssign, motif, confidenceMean, confidenceVariance, numClusters):
     ll = GenerateFakeData(dataAssign, confidenceMean, confidenceVariance, numClusters)
-    motif_hmm = MotifHMM(ll, motif, 0.9)
-    print motif_hmm.SolveAndReturn()
+    motif_hmm = MotifHMM(ll, motif,0.9, None)
+    result,_ = motif_hmm.SolveAndReturn()
+    ll = motif_hmm.negLLMatrix
+    for i in range(len(dataAssign)):
+        print "%s \t %s \t %s" % (dataAssign[i], result[i], ll[i])
+
 
 def testAssign1():
     clusterLen = 5

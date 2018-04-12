@@ -1,6 +1,6 @@
 import numpy as np
 
-# TODO Add distance probabilities
+# TODO Add duration modelling (honestly v necesary)
 
 
 class HMM:
@@ -67,15 +67,18 @@ class HMM:
 
 
 class MotifHMM(HMM):
-    def __init__(self, negLLMatrix, motif, gamma):
+    def __init__(self, negLLMatrix, motif, gamma, motifIncidenceLengths):
         '''
         construct HMM for motif model
         @params
         negLLMatrix: the negative log likelihood matrix per state
         motif: a list of cluster indices that are the motif. i.e [0,1,0] is A^* B^* A^*
+        motifIncidenceLengths: if there are K motif states and N incidences, an N x K matrix A where A[i,j] is the length of the jth motif segment 
+            in incidence i
         '''
         self.motif = motif
         self.gamma = gamma
+        self.motifIncidenceLengths = motifIncidenceLengths
         adjacencyMatrix = self.createAdjacencyMatrix(motif)
         negLLMatrix, initDistribution = self.createNegLLMatrix(
             negLLMatrix, motif)
@@ -91,6 +94,8 @@ class MotifHMM(HMM):
         np.fill_diagonal(adj, 0)  # allow transition to the same state
         np.fill_diagonal(adj[:, 1:], 0)  # allow transition to the next state
         adj[-1, 0] = 0  # allow last state to go back to garbage
+        adj[-1, 1] = 0 # allow last state to go back to start state
+        print adj
         return adj
 
     def createNegLLMatrix(self, negLLMatrix, motif):
@@ -99,20 +104,28 @@ class MotifHMM(HMM):
         relative likelihood cols and adding a garbage cols (which is col 0)
         '''
         n, m = np.shape(negLLMatrix)
-        # garbage values are set to the average best value
-        bestVal = self.gamma*np.mean(np.exp(-1*np.min(negLLMatrix, axis=1)))
+
+        # compute the likelihoods assigned to the garbage value. TODO: figure this out
+        # (1) discounted best value
+        # (2) average out best values and discount, commented out below
+        # bestVal = self.gamma*np.mean(np.exp(-1*np.min(negLLMatrix, axis=1)))
+        # garbageValue = -1*np.log(bestVal)
+        # garbageCol = np.array([[garbageValue]*n]).T
+        
+        bestVals = np.min(negLLMatrix, axis=1) - np.log(self.gamma)
+        garbageCol = np.reshape(bestVals, (n, 1))
+
         negLLMatrix = np.take(negLLMatrix, motif, axis=1)
-        garbageValue = -1*np.log(bestVal)
-        garbageCol = np.array([[garbageValue]*n]).T
         # initial distribution should allow either the garbage or the first state
         initDistribution = np.full(m, np.infty)
         initDistribution[0:2] = 0
-        return np.c_[garbageCol, negLLMatrix], initDistribution
+        finalResult = np.c_[garbageCol, negLLMatrix]
+        return finalResult, initDistribution
 
     def SolveAndReturn(self):
         '''
         Solve the HMM and return the most likely sequence
-        
+
         Returns
         --------
         value1: assignments of each point to a motif state. -1 for garbage
