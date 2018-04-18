@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from tools_karkkainen_sanders import direct_kark_sort
+from .tools_karkkainen_sanders import direct_kark_sort
 from array import array
 import numpy as np
 
@@ -25,7 +25,7 @@ class Rstr_max:
         k = idx = 0
         for mot in self.array_str:
             last = k + len(mot)
-            for p in xrange(len(mot)):
+            for p in range(len(mot)):
                 self.idxString[k] = idx
                 self.idxPos[k] = p
                 self.endAt[k] = last
@@ -45,11 +45,11 @@ class Rstr_max:
         suffix_array = self.res
         endAt = self.endAt
 
-        for i in xrange(len(self.array_str), n):
+        for i in range(len(self.array_str), n):
             v = self.res[i]
             rank[v] = i
         l = 0
-        for j in xrange(n):
+        for j in range(n):
             if(l > 0):
                 l -= 1
             i = rank[j]
@@ -78,7 +78,7 @@ class Rstr_max:
             return {}
 
         pos1 = self.res[0]
-        for idx in xrange(len_lcp):
+        for idx in range(len_lcp):
             current_len = self.lcp[idx]
             pos2 = self.res[idx+1]
             end_ = max(pos1, pos2) + current_len
@@ -131,7 +131,7 @@ def GetMotifs(sequence):
     rstr.add_str(sequence)
     r = rstr.go()
     result = []  # (word_index_start, word_index_end)
-    for (_, nb), (l, start) in r.iteritems():
+    for (_, nb), (l, start) in r.items():
         if l == 1: continue
         occurrences = [rstr.idxPos[rstr.res[o]]
                        for o in range(start, start+nb)]
@@ -142,4 +142,4 @@ def GetMotifs(sequence):
 
 if (__name__ == '__main__'):
     str1 = [1, 1, 1, 2, 2, 1, 1]
-    print GetMotifs(str1)
+    print(GetMotifs(str1))

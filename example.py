@@ -1,9 +1,12 @@
-import TICC_solver as TICC
+from TICC_solver import TICCSolver
 import numpy as np
 import sys
 
-fname = "out.csv"
-(cluster_assignment, cluster_MRFs) = TICC.solve(window_size = 5,number_of_clusters = 4, lambda_parameter = 11e-2, beta = 0.2, maxIters = 100, threshold = 2e-5, write_out_file = False, input_file = fname, prefix_string = "output_folder/", num_proc=1)
+fname = "example_data.txt"
+solver = TICCSolver(window_size=1, number_of_clusters=8, lambda_parameter=11e-2, beta=600, maxIters=5, threshold=2e-5, gamma=0.9999, input_file=fname, num_proc=1)
 
-print(cluster_assignment)
-np.savetxt('Results.txt', cluster_assignment, fmt='%d', delimiter=',')
+old_assign = np.loadtxt("old_assignments.out", dtype=int)
+(cluster_assignment, cluster_MRFs, motifs) = solver.PerformFullTICC(initialClusteredPoints=old_assign,useMotif=True)
+solver.CleanUp()
+
+np.savetxt("assignments.out", cluster_assignment, fmt='%d')

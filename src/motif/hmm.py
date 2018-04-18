@@ -95,7 +95,6 @@ class MotifHMM(HMM):
         np.fill_diagonal(adj[:, 1:], 0)  # allow transition to the next state
         adj[-1, 0] = 0  # allow last state to go back to garbage
         adj[-1, 1] = 0 # allow last state to go back to start state
-        print adj
         return adj
 
     def createNegLLMatrix(self, negLLMatrix, motif):
@@ -103,7 +102,7 @@ class MotifHMM(HMM):
         Create the actual nxeg ll matrix for the motif by extracting out the 
         relative likelihood cols and adding a garbage cols (which is col 0)
         '''
-        n, m = np.shape(negLLMatrix)
+        n, _ = np.shape(negLLMatrix)
 
         # compute the likelihoods assigned to the garbage value. TODO: figure this out
         # (1) discounted best value
@@ -117,7 +116,7 @@ class MotifHMM(HMM):
 
         negLLMatrix = np.take(negLLMatrix, motif, axis=1)
         # initial distribution should allow either the garbage or the first state
-        initDistribution = np.full(m, np.infty)
+        initDistribution = np.full(len(motif) + 1, np.infty)
         initDistribution[0:2] = 0
         finalResult = np.c_[garbageCol, negLLMatrix]
         return finalResult, initDistribution

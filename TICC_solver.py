@@ -17,7 +17,7 @@ np.random.seed(102)
 
 #####################################################################################################################################################################################################
 
-# logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG)
 
 
 class TICCSolver:
@@ -54,12 +54,16 @@ class TICCSolver:
             self.pool.close()
             self.pool.join()
 
-    def PerformFullTICC(self, useMotif=False):
-        clustered_points = self.getInitialClusteredPoints()
-        clustered_points, train_cluster_inverse, _ = self.solveWithInitialization(
-            clustered_points, useMotif=False)
-        motifs = None
+    def PerformFullTICC(self, initialClusteredPoints=None, useMotif=False):
+        train_cluster_inverse = motifs = None
+        clustered_points = initialClusteredPoints
+        if clustered_points is None:
+            # perform no motif ticc
+            initialClusteredPoints = self.getInitialClusteredPoints()
+            clustered_points, train_cluster_inverse, _ = self.solveWithInitialization(
+                initialClusteredPoints, useMotif=False)
         if useMotif:
+            # perform secondary motif ticc if specified
             clustered_points, train_cluster_inverse, motifs = self.solveWithInitialization(
                 clustered_points, useMotif=True)
         return clustered_points, train_cluster_inverse, motifs
@@ -111,6 +115,7 @@ class TICCSolver:
             if useMotif:
                 clustered_points, motifs = PerformAssignment(
                     clustered_points, LLE_all_points_clusters, self.gamma, MaxMotifs=self.maxMotifs)
+                print(clustered_points, motifs)
             old_before_zero = clustered_points.copy()
             self.assignToZeroClusters(
                 clustered_points, old_computed_cov, computed_cov, cluster_mean_stacked_info)

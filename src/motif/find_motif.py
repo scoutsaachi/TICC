@@ -1,5 +1,5 @@
-from rstr_suffix.rstr_max import GetMotifs
-from hmm import MotifHMM
+from .rstr_suffix.rstr_max import GetMotifs
+from .hmm import MotifHMM
 import heapq
 import numpy as np
 from bitarray import bitarray
@@ -28,17 +28,23 @@ def PerformAssignment(sequence, negLLMatrix, gamma, MaxMotifs=None):
     motifs = find_motifs(sequence, MaxMotifs)  # find common motifs with scores
     instanceList = []  # list of (score, motif, indices)
     # TODO: perform this in parallel
+
     for m, motifIncidenceLengths, score in motifs:
         logscore = np.log(score)
         motif_hmm = MotifHMM(negLLMatrix, m, gamma, motifIncidenceLengths)
-        _, motifInstances = motif_hmm.SolveAndReturn()  # (changepoints, score)
+        motifInstances = motif_hmm.SolveAndReturn()  # (changepoints, score)
         for motifIndices, neg_likelihood in motifInstances:
             logodds = computeLogOdds(
                 neg_likelihood, m, motifIndices, logFreqProbs)
             motifScore = logodds + logscore
             instanceList.append((motifScore, m, motifIndices))
     heapq.heapify(instanceList)
-    final_assignment, motif_result = greedy_assign(sequence, instanceList)
+    final_assignment, motif_result, taken = greedy_assign(sequence, instanceList)
+
+    print(motif_result)
+    for i in range(len(sequence)):
+        print(i, sequence[i], final_assignment[i], taken[i])
+    assert False
     return final_assignment, motif_result
 
 
@@ -62,7 +68,7 @@ def greedy_assign(sequence, instanceList):
     taken.setall(False)
     motifs = {}  # motif to instances
     while len(instanceList) != 0:
-        _, motif, indices = instanceList.heappop()
+        _, motif, indices = heapq.heappop(instanceList)
         assert len(motif) == len(indices) - 1
         gap = (indices[0], indices[-1])
         if taken[gap[0]:gap[1]+1].any():
@@ -75,7 +81,7 @@ def greedy_assign(sequence, instanceList):
         if key not in motifs:
             motifs[key] = []
         motifs[key].append(gap)
-    return result, motifs
+    return result, motifs, taken
 
 
 def generateExpandedMotif(motif, motifIndices):
@@ -83,12 +89,13 @@ def generateExpandedMotif(motif, motifIndices):
     given the motif and the indices corresponding to each
     stage of the motif, expand out the motif
     '''
+    motifStart = motifIndices[0]
     motifLength = motifIndices[-1] - motifIndices[0] + 1
     result = np.zeros(motifLength)
     for i in range(len(motif)):  # fill this motif
         val = motif[i]
-        start = motifIndices[i]
-        end = motifIndices[i+1] + 1
+        start = motifIndices[i] - motifStart
+        end = motifIndices[i+1] + 1 - motifStart
         result[start:end] = val
     return result
 
@@ -119,7 +126,7 @@ def find_motifs(sequence, maxMotifs=None):
     processed_motif_list.sort(reverse=True)  # sort by score
     if maxMotifs:
         processed_motif_list = processed_motif_list[:maxMotifs]
-    scores = np.array([s for s, _ in processed_motif_list])
+    scores = np.array([s for s,_,_ in processed_motif_list])
     scores = scores/np.linalg.norm(scores)
     result = [(processed_motif_list[i][1], processed_motif_list[i][2], scores[i])
               for i in range(len(scores))]
@@ -231,15 +238,15 @@ def inflateMotifLengths(collapsedStartIndices, orig_indices, length):
     '''
     N = len(collapsedStartIndices)
     K = length
-    result = np.zeros(N, K)
+    result = np.zeros((N, K))
     for i, collapsedStart in enumerate(collapsedStartIndices):
-        for j in range(N):
-            index = collapsedStart + i
+        for j in range(K):
+            index = collapsedStart + j
             segment = orig_indices[index]
             segLength = segment[1] - segment[0] + 1
             result[i, j] = segLength
     return result
 
-
-find_motifs([1, 2, 3, 5, 1, 2, 3, 6, 1, 2, 3, 4, 5, 3, 4,
-             4, 6, 5, 1, 2, 3, 4, 5, 4, 5, 3, 1, 2, 3, 1, 2])
+find_motifs([1,1,1,2,2,2,3,3,3,1,1,2,2,3,3])
+# find_motifs([1, 2, 3, 5, 1, 2, 3, 6, 1, 2, 3, 4, 5, 3, 4,
+#              4, 6, 5, 1, 2, 3, 4, 5, 4, 5, 3, 1, 2, 3, 1, 2])
