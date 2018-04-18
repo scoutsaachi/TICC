@@ -163,7 +163,18 @@ class TICCSolver:
                     lle = np.dot(x.reshape([1, (num_blocks-1)*n]), np.dot(
                         inv_cov_matrix, x.reshape([n*(num_blocks-1), 1]))) + log_det_cov
                     LLE_all_points_clusters[point, cluster] = lle
-        return LLE_all_points_clusters
+        # normalize
+        ll = -1*LLE_all_points_clusters
+        normalizer = np.reshape(np.max(ll, axis=1), (ll.shape[0], 1))
+        ll = ll - normalizer 
+        ll = np.exp(ll)
+        sums = np.reshape(np.sum(ll, axis=1),(ll.shape[0], 1))
+        ll = ll/sums
+        ll[ll<1e-320]=1e-320
+        assert np.all(ll>0)
+        ll = -1*np.log(ll)
+        return ll
+
 
     def assignToZeroClusters(self, clustered_points, old_computed_cov, computed_cov, cluster_mean_stacked_info):
         '''

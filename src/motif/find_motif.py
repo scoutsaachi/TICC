@@ -30,23 +30,22 @@ def PerformAssignment(sequence, negLLMatrix, beta, gamma, MaxMotifs=None):
     # TODO: perform this in parallel
     garbageCol, betaGarbage = getGarbageCol(sequence, negLLMatrix, beta, gamma)
     for m, motifIncidenceLengths, score in motifs:
+        print(m, score, motifIncidenceLengths.shape[0])
         logscore = np.log(score)
         motif_hmm = MotifHMM(negLLMatrix, m, beta, gamma, motifIncidenceLengths, garbageCol, betaGarbage)
         _, motifInstances = motif_hmm.SolveAndReturn()  # (changepoints, score)
         for motifIndices, neg_likelihood in motifInstances:
             logodds = computeLogOdds(
-                neg_likelihood, m, motifIndices, logFreqProbs)
+                neg_likelihood, m, motifIndices, logFreqProbs,negLLMatrix)
+            print(m, logodds, logscore)
             motifScore = logodds + logscore
             instanceList.append((motifScore, m, motifIndices))
     heapq.heapify(instanceList)
     final_assignment, motif_result, taken = greedy_assign(sequence, instanceList)
+    print (motif_result)
+    if np.all(final_assignment == sequence):
+        print ("assignment not changed")
 
-    print(motif_result)
-    for i in range(len(sequence)):
-        if sequence[i] == final_assignment[i]:
-            print(i, sequence[i], final_assignment[i], taken[i])
-        else:
-            print(i, sequence[i], final_assignment[i], taken[i], "------")
     return final_assignment, motif_result
 
 def getGarbageCol(sequence, negLLMatrix, beta, gamma):
@@ -91,6 +90,7 @@ def greedy_assign(sequence, instanceList):
         gap = (indices[0], indices[-1])
         if taken[gap[0]:gap[1]+1].any():
             # TODO: allow motifs to intrude on the ends of other motifs
+            print("intruding")
             continue  # this spot has already been taken
         taken[gap[0]:gap[1]+1] = 1  # reserve this spot
         # fill motif
@@ -232,9 +232,14 @@ def getMotifIndepProb(motif, logFreqProbs):
     return logscore_indep
 
 
-def computeLogOdds(neg_likelihood, motif, motifIndices, logFreqProbs):
-    likelihood = -1*neg_likelihood
+def computeLogOdds(neg_likelihood, motif, motifIndices, logFreqProbs, negLLMatrix):
+    # ignore likelihood for now
+    negLLSubset = negLLMatrix[motifIndices[0]:motifIndices[-1]+1,:]
+    n = negLLSubset.shape[0]
     expanded_seq = generateExpandedMotif(motif, motifIndices)
+    assert len(expanded_seq) == n
+    likelihood = negLLSubset[range(n), expanded_seq.astype(int).tolist()]
+    likelihood = -1*np.sum(likelihood)
     indiv_prob = getMotifIndepProb(expanded_seq, logFreqProbs)
     return likelihood - indiv_prob
 
