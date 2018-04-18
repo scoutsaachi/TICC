@@ -24,6 +24,10 @@ class HMM:
         self.viterbiGrid = np.zeros((self.n, self.m))  # dp grid
         self.backPointers = np.full((self.n, self.m), -1)  # backpointer grid
 
+    def GetAdjacencyMatrix(self, ts):
+        ''' overridden by motif hmm'''
+        return self.adjacencyMatrix
+
     def UpdateStep(self, ts):
         '''
         Update the ts column of the viterbi grid
@@ -34,9 +38,9 @@ class HMM:
         # the previous costs
         prevCosts = np.reshape(self.viterbiGrid[ts - 1], (self.m, 1))
         # compute costs going to j assuming you are starting at i
-        withSwitchingCosts = prevCosts + self.adjacencyMatrix
+        withSwitchingCosts = prevCosts + self.GetAdjacencyMatrix(ts)
         indices = np.argmin(withSwitchingCosts, axis=0)  # backpointers
-        maxvals = withSwitchingCosts[indices, np.arange(self.m)]
+        maxvals = withSwitchingCosts[indices, range(self.m)]
         indices[maxvals == np.infty] = -1
         newRow = maxvals + self.negLLMatrix[ts]  # the new costs
         self.viterbiGrid[ts] = newRow
@@ -67,7 +71,7 @@ class HMM:
 
 
 class MotifHMM(HMM):
-    def __init__(self, negLLMatrix, motif, gamma, motifIncidenceLengths):
+    def __init__(self, negLLMatrix, motif, beta, gamma, motifIncidenceLengths, garbage_col, betaGarbage):
         '''
         construct HMM for motif model
         @params
@@ -75,14 +79,28 @@ class MotifHMM(HMM):
         motif: a list of cluster indices that are the motif. i.e [0,1,0] is A^* B^* A^*
         motifIncidenceLengths: if there are K motif states and N incidences, an N x K matrix A where A[i,j] is the length of the jth motif segment 
             in incidence i
+        garbageCol: the garbage column's likelihoods
+        betaGarbage: the timesteps where you should add beta to the transition
         '''
+        self.betaGarbage = betaGarbage
+        self.beta = beta
         self.motif = motif
         self.gamma = gamma
         self.motifIncidenceLengths = motifIncidenceLengths
         adjacencyMatrix = self.createAdjacencyMatrix(motif)
         negLLMatrix, initDistribution = self.createNegLLMatrix(
-            negLLMatrix, motif)
+            negLLMatrix, motif, garbage_col)
         HMM.__init__(self, adjacencyMatrix, negLLMatrix, initDistribution)
+
+    def GetAdjacencyMatrix(self, ts):
+        ''' override super to take into account betaGarbage'''
+        if ts not in self.betaGarbage:
+            return self.adjacencyMatrix
+        else:
+            result = self.adjacencyMatrix.copy()
+            result[0,0] = self.beta # add a beta penalty
+            return result
+
 
     def createAdjacencyMatrix(self, motif):
         '''
@@ -92,12 +110,12 @@ class MotifHMM(HMM):
         num_motif_states = len(motif) + 1
         adj = np.full((num_motif_states, num_motif_states), np.infty)
         np.fill_diagonal(adj, 0)  # allow transition to the same state
-        np.fill_diagonal(adj[:, 1:], 0)  # allow transition to the next state
-        adj[-1, 0] = 0  # allow last state to go back to garbage
-        adj[-1, 1] = 0 # allow last state to go back to start state
+        np.fill_diagonal(adj[:, 1:], self.beta)  # allow transition to the next state
+        adj[-1, 0] = self.beta  # allow last state to go back to garbage
+        adj[-1, 1] = self.beta # allow last state to go back to start state
         return adj
 
-    def createNegLLMatrix(self, negLLMatrix, motif):
+    def createNegLLMatrix(self, negLLMatrix, motif, garbage_col):
         '''
         Create the actual nxeg ll matrix for the motif by extracting out the 
         relative likelihood cols and adding a garbage cols (which is col 0)
@@ -107,12 +125,18 @@ class MotifHMM(HMM):
         # compute the likelihoods assigned to the garbage value. TODO: figure this out
         # (1) discounted best value
         # (2) average out best values and discount, commented out below
+        # (3) discounted original value
         # bestVal = self.gamma*np.mean(np.exp(-1*np.min(negLLMatrix, axis=1)))
         # garbageValue = -1*np.log(bestVal)
         # garbageCol = np.array([[garbageValue]*n]).T
         
-        bestVals = np.min(negLLMatrix, axis=1) - np.log(self.gamma)
-        garbageCol = np.reshape(bestVals, (n, 1))
+        # bestVals = np.min(negLLMatrix, axis=1) - np.log(self.gamma)
+        # garbageCol = np.reshape(bestVals, (n, 1))
+        # origVals = negLLMatrix[range(n), original_assign] - np.log(self.gamma)
+        # origVals = negLLMatrix[np.ix_(np.arange(n), original_assign)] - np.log(self.gamma)
+        # garbageCol = np.reshape(origVals, (n, 1))
+
+        garbageCol = np.reshape(garbage_col, (n,1))
 
         negLLMatrix = np.take(negLLMatrix, motif, axis=1)
         # initial distribution should allow either the garbage or the first state

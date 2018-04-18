@@ -76,7 +76,7 @@ class TICCSolver:
         return clustered_points
 
     def solveWithInitialization(self, clustered_points, useMotif):
-        motifs = None
+        motifs = old_motifs = None
         assert self.maxIters > 0  # must have at least one iteration
         num_stacked = self.window_size
         beta = self.beta  # switching penalty
@@ -114,9 +114,9 @@ class TICCSolver:
                 LLE_all_points_clusters, switch_penalty=beta)
             if useMotif:
                 clustered_points, motifs = PerformAssignment(
-                    clustered_points, LLE_all_points_clusters, self.gamma, MaxMotifs=self.maxMotifs)
+                    clustered_points, LLE_all_points_clusters, self.beta, self.gamma, MaxMotifs=self.maxMotifs)
                 print(clustered_points, motifs)
-            old_before_zero = clustered_points.copy()
+            before_zero = clustered_points.copy()
             self.assignToZeroClusters(
                 clustered_points, old_computed_cov, computed_cov, cluster_mean_stacked_info)
             logging.debug("smoothened points")
@@ -126,10 +126,11 @@ class TICCSolver:
                 logging.debug(
                     "length of cluster %s --> %s" % (cluster, len(clust_indices[cluster])))
 
-            if np.array_equal(old_clustered_points, old_before_zero):
+            if np.array_equal(old_clustered_points, before_zero) and old_motifs == motifs:
                 logging.info("CONVERGED!!!! BREAKING EARLY!!!")
                 break
-            old_clustered_points = clustered_points
+            old_clustered_points = before_zero
+            old_motifs = motifs
             # end of training
         return (clustered_points, train_cluster_inverse, motifs)
 

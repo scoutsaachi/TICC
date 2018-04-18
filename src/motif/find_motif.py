@@ -8,7 +8,7 @@ from collections import Counter
 # TODO: cite
 
 
-def PerformAssignment(sequence, negLLMatrix, gamma, MaxMotifs=None):
+def PerformAssignment(sequence, negLLMatrix, beta, gamma, MaxMotifs=None):
     '''
     Perform the motif guided sequence assignment
 
@@ -28,11 +28,11 @@ def PerformAssignment(sequence, negLLMatrix, gamma, MaxMotifs=None):
     motifs = find_motifs(sequence, MaxMotifs)  # find common motifs with scores
     instanceList = []  # list of (score, motif, indices)
     # TODO: perform this in parallel
-
+    garbageCol, betaGarbage = getGarbageCol(sequence, negLLMatrix, beta, gamma)
     for m, motifIncidenceLengths, score in motifs:
         logscore = np.log(score)
-        motif_hmm = MotifHMM(negLLMatrix, m, gamma, motifIncidenceLengths)
-        motifInstances = motif_hmm.SolveAndReturn()  # (changepoints, score)
+        motif_hmm = MotifHMM(negLLMatrix, m, beta, gamma, motifIncidenceLengths, garbageCol, betaGarbage)
+        _, motifInstances = motif_hmm.SolveAndReturn()  # (changepoints, score)
         for motifIndices, neg_likelihood in motifInstances:
             logodds = computeLogOdds(
                 neg_likelihood, m, motifIndices, logFreqProbs)
@@ -43,10 +43,28 @@ def PerformAssignment(sequence, negLLMatrix, gamma, MaxMotifs=None):
 
     print(motif_result)
     for i in range(len(sequence)):
-        print(i, sequence[i], final_assignment[i], taken[i])
-    assert False
+        if sequence[i] == final_assignment[i]:
+            print(i, sequence[i], final_assignment[i], taken[i])
+        else:
+            print(i, sequence[i], final_assignment[i], taken[i], "------")
     return final_assignment, motif_result
 
+def getGarbageCol(sequence, negLLMatrix, beta, gamma):
+    '''
+    return the garbage column and the times where the garbage 
+    column should be added by beta
+    '''
+    n = len(sequence)
+    origVals = negLLMatrix[range(n), sequence.astype(int)] - np.log(gamma)
+    betaGarbage = set()
+    # add in where the original subsumed switching costs
+    currValue = sequence[0]
+    for i in range(1, n):
+        newValue = sequence[i]
+        if currValue != newValue:
+            betaGarbage.add(i)
+        currValue = newValue
+    return origVals, betaGarbage
 
 def greedy_assign(sequence, instanceList):
     '''
