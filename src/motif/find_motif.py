@@ -26,20 +26,21 @@ def PerformAssignment(sequence, negLLMatrix, beta, gamma, MaxMotifs=None):
     '''
     logFreqProbs = getFrequencyProbs(sequence)
     motifs = find_motifs(sequence, MaxMotifs)  # find common motifs with scores
+    for m, lengths, score in motifs:
+        print(m, score, lengths.shape[0])
+    print("-----")
     instanceList = []  # list of (score, motif, indices)
     # TODO: perform this in parallel
     garbageCol, betaGarbage = getGarbageCol(sequence, negLLMatrix, beta, gamma)
     for m, motifIncidenceLengths, score in motifs:
         print(m, score, motifIncidenceLengths.shape[0])
-        logscore = np.log(score)
         motif_hmm = MotifHMM(negLLMatrix, m, beta, gamma, motifIncidenceLengths, garbageCol, betaGarbage)
         _, motifInstances = motif_hmm.SolveAndReturn()  # (changepoints, score)
         for motifIndices, neg_likelihood in motifInstances:
             logodds = computeLogOdds(
                 neg_likelihood, m, motifIndices, logFreqProbs,negLLMatrix)
-            print(m, logodds, logscore)
-            motifScore = logodds + logscore
-            instanceList.append((motifScore, m, motifIndices))
+            motifScore = logodds * score
+            instanceList.append((-1*motifScore, m, motifIndices))
     heapq.heapify(instanceList)
     final_assignment, motif_result, taken = greedy_assign(sequence, instanceList)
     print (motif_result)
@@ -85,7 +86,8 @@ def greedy_assign(sequence, instanceList):
     taken.setall(False)
     motifs = {}  # motif to instances
     while len(instanceList) != 0:
-        _, motif, indices = heapq.heappop(instanceList)
+        score, motif, indices = heapq.heappop(instanceList)
+        print (-1*score, motif)
         assert len(motif) == len(indices) - 1
         gap = (indices[0], indices[-1])
         if taken[gap[0]:gap[1]+1].any():
@@ -145,7 +147,7 @@ def find_motifs(sequence, maxMotifs=None):
     if maxMotifs:
         processed_motif_list = processed_motif_list[:maxMotifs]
     scores = np.array([s for s,_,_ in processed_motif_list])
-    scores = scores/np.linalg.norm(scores)
+    scores = scores/np.sum(scores)
     result = [(processed_motif_list[i][1], processed_motif_list[i][2], scores[i])
               for i in range(len(scores))]
     return result
@@ -168,7 +170,7 @@ def filterOverlapping(incidences, length):
 def MotifScore(totLength, logFreqProbs, motif, numIncidences):
     '''
         perform motif score: G-test
-        return a score. do not log yet
+        return a score. 
     '''
     motifLength = len(motif)
     database_size = totLength - (motifLength - 1)
