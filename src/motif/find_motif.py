@@ -32,19 +32,20 @@ def PerformAssignment(sequence, negLLMatrix, solver):
     logFreqProbs = getFrequencyProbs(sequence)
     # find common motifs with scores
     motifs = find_motifs(sequence, solver.maxMotifs)
+    nMotifsFound = len(motifs)
     # for m, lengths, score in motifs:
     #     print(m, score, lengths.shape[0])
     # print("-----")
     instanceList = []  # list of (score, motif, indices)
     garbageCol, betaGarbage = getGarbageCol(
         sequence, negLLMatrix, solver.beta, solver.gamma)
-    futures = [None]*len(motifs)
+    futures = [None]*nMotifsFound
     for i, motifTuple in enumerate(motifs):
         futures[i] = solver.pool.apply_async(motifWorker,
             (motifTuple, solver.beta, solver.gamma, negLLMatrix,
             garbageCol, betaGarbage, logFreqProbs))
     instanceList = []
-    for i in len(motifs):
+    for i in range(nMotifsFound):
         worker_result = futures[i].get()
         instanceList += worker_result
         print("motif done", motifs[i][0])
@@ -167,13 +168,16 @@ def find_motifs(sequence, maxMotifs=None):
     totLength = len(collapsed)
     motif_results = GetMotifs(collapsed)  # [(motif length), [<start_indices>]]
     processed_motif_list = []  # score, motif
+    print("-----")
     for length, incidences in motif_results:
         if filterOverlapping(incidences, length) == 1:
             continue
         motif = collapsed[incidences[0]:incidences[0]+length]
         pscore = PoissonMotifScore(
             totLength, logFreqProbs, motif, len(incidences))
+        print (motif, pscore)
         processed_motif_list.append((pscore, motif, incidences))
+    print("----")
     processed_motif_list.sort()  # sort by score, smallest first
     if maxMotifs:
         processed_motif_list = processed_motif_list[:maxMotifs]

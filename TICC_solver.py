@@ -114,7 +114,7 @@ class TICCSolver:
                 LLE_all_points_clusters, switch_penalty=beta)
             if useMotif:
                 clustered_points, motifs = PerformAssignment(
-                    clustered_points, LLE_all_points_clusters, self.beta, self.gamma, MaxMotifs=self.maxMotifs)
+                    clustered_points, LLE_all_points_clusters, self)
                 print(clustered_points, motifs)
             before_zero = clustered_points.copy()
             self.assignToZeroClusters(
