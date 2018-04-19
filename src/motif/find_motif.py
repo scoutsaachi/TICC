@@ -4,6 +4,7 @@ import heapq
 import numpy as np
 from bitarray import bitarray
 from collections import Counter
+from scipy.stats import poisson
 # https://code.google.com/archive/p/py-rstr-max/
 # TODO: cite
 
@@ -142,6 +143,8 @@ def find_motifs(sequence, maxMotifs=None):
         motifIncidenceLengths = inflateMotifLengths(
             incidences, orig_indices, length)
         score = MotifScore(totLength, logFreqProbs, motif, len(incidences))
+        pscore = PoissonMotifScore(totLength, logFreqProbs, motif, len(incidences))
+        print(motif, score, pscore)
         processed_motif_list.append((score, motif, motifIncidenceLengths))
     processed_motif_list.sort(reverse=True)  # sort by score
     if maxMotifs:
@@ -166,6 +169,14 @@ def filterOverlapping(incidences, length):
             count += 1
     return count
 
+
+def PoissonMotifScore(totLength, logFreqProbs, motif, numIncidences):
+    logscore_indep = getMotifIndepProb(motif, logFreqProbs)
+    motifLength = len(motif)
+    database_size = totLength - (motifLength - 1)
+    lamb = np.exp(logscore_indep + np.log(database_size))
+    prob = 1 - poisson.cdf(numIncidences, lamb)
+    return prob
 
 def MotifScore(totLength, logFreqProbs, motif, numIncidences):
     '''
