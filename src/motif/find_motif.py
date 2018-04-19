@@ -3,7 +3,7 @@ from .hmm import MotifHMM
 import heapq
 import numpy as np
 from bitarray import bitarray
-from collections import Counter, namedtuple
+from collections import Counter, namedtuple,defaultdict
 from scipy.stats import poisson
 # https://code.google.com/archive/p/py-rstr-max/
 # TODO: cite
@@ -97,28 +97,36 @@ def greedy_assignv2(sequence, instanceList):
     T = len(sequence)
     locked = bitarray(T) # locked corresponds to indices that have been irrecovocably taken
     locked.setall(False)
-    tentative = [set()]*T # tentative corresponds to motifs that have made a bid on an index
+    tentative = [] # tentative corresponds to motifs that have made a bid on an index
+    for i in range(T):
+        tentative.append(set())
     result = sequence.copy() # the final result
-    motifResult = defaultdict(set()) # motifs to instance ids
+    motifResult = defaultdict(set) # motifs to instance ids
+    locked_vals = []
 
     def lock(motifIDX): # lock down an instance. assume that we're already in motif set, and already tentative
         nonlocal instanceList, locked, result, tentative, motifResult
-        assert not isLocked(motifIDX) # shouldn't already be locked
+        assert not isLocked(motifIDX)
+        locked_vals.append(motifIDX)
+        
         _, motif, indices = instanceList[motifIDX]
+        oldSet = motifResult[motif].copy()
         gap = (indices[0], indices[-1])
         for i in range(gap[0], gap[1]):
-            for loser in tentative[i]: # for each loser who lost out on this spot
+            losers = tentative[i].copy()
+            for loser in losers: # for each loser who lost out on this spot
                 if loser == motifIDX: continue # not counting ourselves as losers
                 _, loser_m, loserIndices = instanceList[loser]
                 loserGap = (loserIndices[0], loserIndices[-1])
                 for j in range(loserGap[0], loserGap[1]): # remove this loser from tentative
-                    if i == j: continue # try not to mess with for loop iterations
                     tentative[j].discard(loser)
                 motifResult[loser_m].discard(loser) # remove this loser from the motifResult
+            assert len(tentative[i]) == 1
+            tentative[i] = None
         # lock it down
         locked[gap[0]:gap[1]+1] = 1
         result[gap[0]:gap[1]+1] = generateExpandedMotif(motif, indices)
-    
+
     def makeTentative(motifIDX):
         nonlocal instanceList, tentative, motifResult
         _, motif, indices = instanceList[motifIDX]
@@ -130,10 +138,11 @@ def greedy_assignv2(sequence, instanceList):
     
     def isLocked(idx):
         nonlocal instanceList, locked
+        _, _, indices = instanceList[idx]
         gap = (indices[0], indices[-1])
         return locked[gap[0]:gap[1]+1].any()
 
-    for motifIndex, instance in instanceList:
+    for motifIndex, instance in enumerate(instanceList):
         score, motif, indices = instance
         assert len(motif) == len(indices) - 1
         if isLocked(motifIndex):
@@ -141,21 +150,22 @@ def greedy_assignv2(sequence, instanceList):
             continue
         # make tentative
         makeTentative(motifIndex) # are now tentative and have added to motifResult
-        if motifResult[motif].size() > 2:
+        if len(motifResult[motif]) > 2:
             # was already a locked motif, so just update this index
             lock(motifIndex)
-        if motifResult[motif].size() == 2:
+        if len(motifResult[motif]) == 2:
             # now a locked motif so lock everything in this set
-            for newlyLockedIDX in motifResult[motif]:
+            winners = motifResult[motif].copy()
+            for newlyLockedIDX in winners:
                 lock(newlyLockedIDX)
     finalResult = {}
     for m,instanceIdxSet in motifResult.items():
-        if instanceIdxSet.size() < 2:
+        if len(instanceIdxSet) < 2:
             continue
         gaps = []
         for idx in instanceIdxSet:
             assert isLocked(idx)
-            indices = instanceList[idx]
+            _, _, indices = instanceList[idx]
             gap = (indices[0], indices[-1])
             gaps.append(gap)
         finalResult[m] = gaps
@@ -228,16 +238,13 @@ def find_motifs(sequence, maxMotifs=None):
     totLength = len(collapsed)
     motif_results = GetMotifs(collapsed)  # [(motif length), [<start_indices>]]
     processed_motif_list = []  # score, motif
-    print("-----")
     for length, incidences in motif_results:
         if filterOverlapping(incidences, length) == 1:
             continue
         motif = collapsed[incidences[0]:incidences[0]+length]
         pscore = PoissonMotifScore(
             totLength, logFreqProbs, motif, len(incidences))
-        print (motif, pscore)
         processed_motif_list.append((pscore, motif, incidences))
-    print("----")
     processed_motif_list.sort()  # sort by score, smallest first
     if maxMotifs:
         processed_motif_list = processed_motif_list[:maxMotifs]
