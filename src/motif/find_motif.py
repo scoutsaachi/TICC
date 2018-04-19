@@ -3,10 +3,13 @@ from .hmm import MotifHMM
 import heapq
 import numpy as np
 from bitarray import bitarray
-from collections import Counter
+from collections import Counter, namedtuple
 # https://code.google.com/archive/p/py-rstr-max/
 # TODO: cite
 
+MotifInstance = namedtuple('MotifInstance', 
+    ['motif', 'motif score', 'motif indices'])
+Motif = namedtuple('Motif', ['motif', 'motifIncidenceLengths'])
 
 def PerformAssignment(sequence, negLLMatrix, beta, gamma, MaxMotifs=None):
     '''
