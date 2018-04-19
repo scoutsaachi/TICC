@@ -37,7 +37,6 @@ def PerformAssignment(sequence, negLLMatrix, beta, gamma, MaxMotifs=None):
     # TODO: perform this in parallel
     garbageCol, betaGarbage = getGarbageCol(sequence, negLLMatrix, beta, gamma)
     for m, motifIncidenceLengths, score in motifs:
-        print(m, score, motifIncidenceLengths.shape[0])
         motif_hmm = MotifHMM(negLLMatrix, m, beta, gamma, motifIncidenceLengths, garbageCol, betaGarbage)
         _, motifInstances = motif_hmm.SolveAndReturn()  # (changepoints, score)
         for motifIndices, neg_likelihood in motifInstances:
@@ -138,26 +137,44 @@ def find_motifs(sequence, maxMotifs=None):
     motif_results = GetMotifs(collapsed)  # [(motif length), [<start_indices>]]
     processed_motif_list = []  # score, motif
     for length, incidences in motif_results:
-        # require that all motifs have at least 2 not overlapping instances
-        if filterOverlapping(incidences, length) == 1:
-            continue
+        if filterOverlapping(incidences, length) == 1: continue
         motif = collapsed[incidences[0]:incidences[0]+length]
-        # matrix containing lengths of the segments of the incidences of the motifs
-        motifIncidenceLengths = inflateMotifLengths(
-            incidences, orig_indices, length)
-        score = MotifScore(totLength, logFreqProbs, motif, len(incidences))
         pscore = PoissonMotifScore(totLength, logFreqProbs, motif, len(incidences))
-        print(motif, score, pscore)
-        processed_motif_list.append((score, motif, motifIncidenceLengths))
-    processed_motif_list.sort(reverse=True)  # sort by score
+        processed_motif_list.append((pscore, motif, incidences))
+    processed_motif_list.sort()  # sort by score, smallest first
     if maxMotifs:
         processed_motif_list = processed_motif_list[:maxMotifs]
-    scores = np.array([s for s,_,_ in processed_motif_list])
-    scores = scores/np.sum(scores)
-    result = [(processed_motif_list[i][1], processed_motif_list[i][2], scores[i])
-              for i in range(len(scores))]
-    return result
 
+    #perform Holm to weed out scores:
+    alpha = 0.05
+    n = len(processed_motif_list)
+    gscores = []
+    for i in range(len(processed_motif_list)):
+        pvalue, motif, incidences = processed_motif_list[i]
+        if pvalue > alpha/(n-i): break 
+        gscores.append(MotifScore(totLength, logFreqProbs, motif,len(incidences)))
+    gscores = np.array(gscores)/np.sum(gscores)
+    weeded_results = []
+    for i, gscore in enumerate(gscores):
+        _, motif, incidences = processed_motif_list[i]
+        motifIncidenceLengths = inflateMotifLengths(incidences, orig_indices, len(motif))
+        weeded_result.append(motif, motifIncidenceLengths, gscore)
+    return weeded_results
+
+def performHolm(processed_motif_list):
+    '''
+    params is a list of (p value, motif,motifIncidenceLengths)
+    '''
+    result = []
+    alpha = 0.05
+    n = len(processed_motif_list)
+    for i in range(len(processed_motif_list))
+        alpha_p = alpha/(n-i)
+        p_value, motif, motifIncidenceLengths = processed_motif_list[i]
+        if p_value <= alpha_p:
+            break
+        
+        
 
 def filterOverlapping(incidences, length):
     count = 1
@@ -286,6 +303,6 @@ def inflateMotifLengths(collapsedStartIndices, orig_indices, length):
             result[i, j] = segLength
     return result
 
-find_motifs([1,1,1,2,2,2,3,3,3,1,1,2,2,3,3])
+# find_motifs([1,1,1,2,2,2,3,3,3,1,1,2,2,3,3])
 # find_motifs([1, 2, 3, 5, 1, 2, 3, 6, 1, 2, 3, 4, 5, 3, 4,
 #              4, 6, 5, 1, 2, 3, 4, 5, 4, 5, 3, 1, 2, 3, 1, 2])
