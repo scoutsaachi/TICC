@@ -7,11 +7,11 @@ from collections import Counter, namedtuple
 from scipy.stats import poisson
 # https://code.google.com/archive/p/py-rstr-max/
 # TODO: cite
-
+'''
 MotifInstance = namedtuple('MotifInstance', 
     ['motif', 'motif score', 'motif indices'])
 Motif = namedtuple('Motif', ['motif', 'motifIncidenceLengths'])
-
+'''
 def PerformAssignment(sequence, negLLMatrix, beta, gamma, MaxMotifs=None):
     '''
     Perform the motif guided sequence assignment
@@ -37,6 +37,7 @@ def PerformAssignment(sequence, negLLMatrix, beta, gamma, MaxMotifs=None):
     # TODO: perform this in parallel
     garbageCol, betaGarbage = getGarbageCol(sequence, negLLMatrix, beta, gamma)
     for m, motifIncidenceLengths, score in motifs:
+        print("processing", m)
         motif_hmm = MotifHMM(negLLMatrix, m, beta, gamma, motifIncidenceLengths, garbageCol, betaGarbage)
         _, motifInstances = motif_hmm.SolveAndReturn()  # (changepoints, score)
         for motifIndices, neg_likelihood in motifInstances:
@@ -149,7 +150,7 @@ def find_motifs(sequence, maxMotifs=None):
     alpha = 0.05
     n = len(processed_motif_list)
     gscores = []
-    for i in range(len(processed_motif_list)):
+    for i in range(n):
         pvalue, motif, incidences = processed_motif_list[i]
         if pvalue > alpha/(n-i): break 
         gscores.append(MotifScore(totLength, logFreqProbs, motif,len(incidences)))
@@ -158,23 +159,8 @@ def find_motifs(sequence, maxMotifs=None):
     for i, gscore in enumerate(gscores):
         _, motif, incidences = processed_motif_list[i]
         motifIncidenceLengths = inflateMotifLengths(incidences, orig_indices, len(motif))
-        weeded_result.append(motif, motifIncidenceLengths, gscore)
+        weeded_results.append((motif, motifIncidenceLengths, gscore))
     return weeded_results
-
-def performHolm(processed_motif_list):
-    '''
-    params is a list of (p value, motif,motifIncidenceLengths)
-    '''
-    result = []
-    alpha = 0.05
-    n = len(processed_motif_list)
-    for i in range(len(processed_motif_list))
-        alpha_p = alpha/(n-i)
-        p_value, motif, motifIncidenceLengths = processed_motif_list[i]
-        if p_value <= alpha_p:
-            break
-        
-        
 
 def filterOverlapping(incidences, length):
     count = 1
