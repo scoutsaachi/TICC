@@ -51,7 +51,7 @@ def PerformAssignment(sequence, negLLMatrix, solver):
         print("motif done", motifs[i][0])
     
     instanceList.sort()    
-    final_assignment, motif_result = greedy_assignv2(sequence, instanceList)
+    final_assignment, motif_result = greedy_assignv2(sequence, instanceList, solver.motifReq)
     # heapq.heapify(instanceList)
     # final_assignment, motif_result, _ = greedy_assign(
     #     sequence, instanceList)
@@ -93,7 +93,7 @@ def getGarbageCol(sequence, negLLMatrix, beta, gamma):
     return origVals, betaGarbage
 
 
-def greedy_assignv2(sequence, instanceList):
+def greedy_assignv2(sequence, instanceList, motifReq):
     T = len(sequence)
     locked = bitarray(T) # locked corresponds to indices that have been irrecovocably taken
     locked.setall(False)
@@ -150,17 +150,17 @@ def greedy_assignv2(sequence, instanceList):
             continue
         # make tentative
         makeTentative(motifIndex) # are now tentative and have added to motifResult
-        if len(motifResult[motif]) > 2:
+        if len(motifResult[motif]) > motifReq:
             # was already a locked motif, so just update this index
             lock(motifIndex)
-        if len(motifResult[motif]) == 2:
+        if len(motifResult[motif]) == motifReq:
             # now a locked motif so lock everything in this set
             winners = motifResult[motif].copy()
             for newlyLockedIDX in winners:
                 lock(newlyLockedIDX)
     finalResult = {}
     for m,instanceIdxSet in motifResult.items():
-        if len(instanceIdxSet) < 2:
+        if len(instanceIdxSet) < motifReq:
             continue
         gaps = []
         for idx in instanceIdxSet:
