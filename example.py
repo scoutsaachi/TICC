@@ -4,7 +4,7 @@ import sys
 
 fname = "ticcsensor.csv"
 mode = int(sys.argv[1])
-solver = TICCSolver(window_size=1, number_of_clusters=10, lambda_parameter=5e-3, beta=100, threshold=2e-5, gamma=0.8, input_file=fname, num_proc=10, maxMotifs=30)
+solver = TICCSolver(window_size=1, number_of_clusters=5, lambda_parameter=5e-3, beta=100, threshold=2e-5, gamma=0.9, input_file=fname, num_proc=10, maxMotifs=30, motifReq=3, maxIters=15)
 old_assign=None
 usemotif = False
 if mode == 1:

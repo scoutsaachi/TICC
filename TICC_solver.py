@@ -23,7 +23,7 @@ logging.basicConfig(level=logging.DEBUG)
 class TICCSolver:
     def __init__(self, window_size=10, number_of_clusters=5, lambda_parameter=11e-2,
                  beta=400, maxIters=1000, threshold=2e-5,
-                 input_file=None, num_proc=1, gamma=0.9, maxMotifs=None):
+                 input_file=None, num_proc=1, gamma=0.9, maxMotifs=None, motifReq=2):
         self.window_size = window_size
         self.K = number_of_clusters  # number of clusters
         self.lambda_param = lambda_parameter
@@ -34,6 +34,7 @@ class TICCSolver:
         self.cluster_reassignment = 20  # number of points to reassign to a 0 cluster
         self.gamma = gamma  # aggressiveness of motif
         self.maxMotifs = maxMotifs  # max num of motifs
+        self.motifReq = motifReq
         # get the data inflated by window size
         data = np.loadtxt(input_file, delimiter=",")
         m, n = data.shape
