@@ -49,25 +49,17 @@ def PerformAssignment(sequence, negLLMatrix, solver):
         worker_result = futures[i].get()
         instanceList += worker_result
         print("motif done", motifs[i][0])
-    # for m, motifIncidenceLengths, score in motifs:
-    #     print("processing", m)
-    #     motif_hmm = MotifHMM(negLLMatrix, m, solver.beta, solver.gamma,
-    #                          motifIncidenceLengths, garbageCol, betaGarbage)
-    #     _, motifInstances = motif_hmm.SolveAndReturn()  # (changepoints, score)
-    #     for motifIndices, neg_likelihood in motifInstances:
-    #         logodds = computeLogOdds(
-    #             neg_likelihood, m, motifIndices, logFreqProbs, negLLMatrix)
-    #         motifScore = logodds * score
-    #         instanceList.append((-1*motifScore, m, motifIndices))
-    heapq.heapify(instanceList)
-    final_assignment, motif_result, _ = greedy_assign(
-        sequence, instanceList)
+    
+    instanceList.sort()    
+    final_assignment, motif_result = greedy_assignv2(sequence, instanceList)
+    # heapq.heapify(instanceList)
+    # final_assignment, motif_result, _ = greedy_assign(
+    #     sequence, instanceList)
     print (motif_result)
     if np.all(final_assignment == sequence):
         print ("assignment not changed")
 
     return final_assignment, motif_result
-
 
 def motifWorker(motifTuple, beta, gamma, negLLMatrix, garbageCol, betaGarbage, logFreqProbs):
     m, motifIncidenceLengths, score = motifTuple
@@ -79,7 +71,7 @@ def motifWorker(motifTuple, beta, gamma, negLLMatrix, garbageCol, betaGarbage, l
         logodds = computeLogOdds(
             neg_likelihood, m, motifIndices, logFreqProbs, negLLMatrix)
         motifScore = logodds * score
-        instanceList.append((-1*motifScore, m, motifIndices))
+        instanceList.append((-1*motifScore, tuple(m), motifIndices))
     return instanceList
 
 
@@ -100,6 +92,74 @@ def getGarbageCol(sequence, negLLMatrix, beta, gamma):
         currValue = newValue
     return origVals, betaGarbage
 
+
+def greedy_assignv2(sequence, instanceList):
+    T = len(sequence)
+    locked = bitarray(T) # locked corresponds to indices that have been irrecovocably taken
+    locked.setall(False)
+    tentative = [set()]*T # tentative corresponds to motifs that have made a bid on an index
+    result = sequence.copy() # the final result
+    motifResult = defaultdict(set()) # motifs to instance ids
+
+    def lock(motifIDX): # lock down an instance. assume that we're already in motif set, and already tentative
+        nonlocal instanceList, locked, result, tentative, motifResult
+        assert not isLocked(motifIDX) # shouldn't already be locked
+        _, motif, indices = instanceList[motifIDX]
+        gap = (indices[0], indices[-1])
+        for i in range(gap[0], gap[1]):
+            for loser in tentative[i]: # for each loser who lost out on this spot
+                if loser == motifIDX: continue # not counting ourselves as losers
+                _, loser_m, loserIndices = instanceList[loser]
+                loserGap = (loserIndices[0], loserIndices[-1])
+                for j in range(loserGap[0], loserGap[1]): # remove this loser from tentative
+                    if i == j: continue # try not to mess with for loop iterations
+                    tentative[j].discard(loser)
+                motifResult[loser_m].discard(loser) # remove this loser from the motifResult
+        # lock it down
+        locked[gap[0]:gap[1]+1] = 1
+        result[gap[0]:gap[1]+1] = generateExpandedMotif(motif, indices)
+    
+    def makeTentative(motifIDX):
+        nonlocal instanceList, tentative, motifResult
+        _, motif, indices = instanceList[motifIDX]
+        gap = (indices[0], indices[-1])
+        # add ourselves to the result set
+        motifResult[motif].add(motifIDX)
+        for i in range(gap[0], gap[1]): # make ourselves tentative
+            tentative[i].add(motifIDX)
+    
+    def isLocked(idx):
+        nonlocal instanceList, locked
+        gap = (indices[0], indices[-1])
+        return locked[gap[0]:gap[1]+1].any()
+
+    for motifIndex, instance in instanceList:
+        score, motif, indices = instance
+        assert len(motif) == len(indices) - 1
+        if isLocked(motifIndex):
+            # spot is not feasible
+            continue
+        # make tentative
+        makeTentative(motifIndex) # are now tentative and have added to motifResult
+        if motifResult[motif].size() > 2:
+            # was already a locked motif, so just update this index
+            lock(motifIndex)
+        if motifResult[motif].size() == 2:
+            # now a locked motif so lock everything in this set
+            for newlyLockedIDX in motifResult[motif]:
+                lock(newlyLockedIDX)
+    finalResult = {}
+    for m,instanceIdxSet in motifResult.items():
+        if instanceIdxSet.size() < 2:
+            continue
+        gaps = []
+        for idx in instanceIdxSet:
+            assert isLocked(idx)
+            indices = instanceList[idx]
+            gap = (indices[0], indices[-1])
+            gaps.append(gap)
+        finalResult[m] = gaps
+    return result, finalResult
 
 def greedy_assign(sequence, instanceList):
     '''
