@@ -12,7 +12,9 @@ MotifInstance = namedtuple('MotifInstance',
     ['motif', 'motif score', 'motif indices'])
 Motif = namedtuple('Motif', ['motif', 'motifIncidenceLengths'])
 '''
-def PerformAssignment(sequence, negLLMatrix, beta, gamma, MaxMotifs=None):
+
+
+def PerformAssignment(sequence, negLLMatrix, solver):
     '''
     Perform the motif guided sequence assignment
 
@@ -20,8 +22,7 @@ def PerformAssignment(sequence, negLLMatrix, beta, gamma, MaxMotifs=None):
     -------
     sequence: the sequence of assignments outputted by TICC
     negLLMatrix: the negative log likelihood without any motifs
-    gamma: aggressiveness of motif finding
-    MaxMotifs: the max number of motifs allowed
+    sovler: the TICC_solver calling this method
 
     Returns
     -------
@@ -29,29 +30,57 @@ def PerformAssignment(sequence, negLLMatrix, beta, gamma, MaxMotifs=None):
     motifs: the motifs found, as a dict of {motif: [(start1,end1), (start2,end2)...]}
     '''
     logFreqProbs = getFrequencyProbs(sequence)
-    motifs = find_motifs(sequence, MaxMotifs)  # find common motifs with scores
-    for m, lengths, score in motifs:
-        print(m, score, lengths.shape[0])
-    print("-----")
+    # find common motifs with scores
+    motifs = find_motifs(sequence, solver.maxMotifs)
+    # for m, lengths, score in motifs:
+    #     print(m, score, lengths.shape[0])
+    # print("-----")
     instanceList = []  # list of (score, motif, indices)
-    # TODO: perform this in parallel
-    garbageCol, betaGarbage = getGarbageCol(sequence, negLLMatrix, beta, gamma)
-    for m, motifIncidenceLengths, score in motifs:
-        print("processing", m)
-        motif_hmm = MotifHMM(negLLMatrix, m, beta, gamma, motifIncidenceLengths, garbageCol, betaGarbage)
-        _, motifInstances = motif_hmm.SolveAndReturn()  # (changepoints, score)
-        for motifIndices, neg_likelihood in motifInstances:
-            logodds = computeLogOdds(
-                neg_likelihood, m, motifIndices, logFreqProbs,negLLMatrix)
-            motifScore = logodds * score
-            instanceList.append((-1*motifScore, m, motifIndices))
+    garbageCol, betaGarbage = getGarbageCol(
+        sequence, negLLMatrix, solver.beta, solver.gamma)
+    futures = [None]*len(motifs)
+    for i, motifTuple in enumerate(motifs):
+        futures[i] = solver.pool.apply_async(motifWorker,
+            (motifTuple, solver.beta, solver.gamma, negLLMatrix,
+            garbageCol, betaGarbage, logFreqProbs))
+    instanceList = []
+    for i in len(motifs):
+        worker_result = futures[i].get()
+        instanceList += worker_result
+        print("motif done", motifs[i][0])
+    # for m, motifIncidenceLengths, score in motifs:
+    #     print("processing", m)
+    #     motif_hmm = MotifHMM(negLLMatrix, m, solver.beta, solver.gamma,
+    #                          motifIncidenceLengths, garbageCol, betaGarbage)
+    #     _, motifInstances = motif_hmm.SolveAndReturn()  # (changepoints, score)
+    #     for motifIndices, neg_likelihood in motifInstances:
+    #         logodds = computeLogOdds(
+    #             neg_likelihood, m, motifIndices, logFreqProbs, negLLMatrix)
+    #         motifScore = logodds * score
+    #         instanceList.append((-1*motifScore, m, motifIndices))
     heapq.heapify(instanceList)
-    final_assignment, motif_result, taken = greedy_assign(sequence, instanceList)
+    final_assignment, motif_result, _ = greedy_assign(
+        sequence, instanceList)
     print (motif_result)
     if np.all(final_assignment == sequence):
         print ("assignment not changed")
 
     return final_assignment, motif_result
+
+
+def motifWorker(motifTuple, beta, gamma, negLLMatrix, garbageCol, betaGarbage, logFreqProbs):
+    m, motifIncidenceLengths, score = motifTuple
+    instanceList = []
+    motif_hmm = MotifHMM(negLLMatrix, m, beta, gamma,
+                         motifIncidenceLengths, garbageCol, betaGarbage)
+    _, motifInstances = motif_hmm.SolveAndReturn()  # (changepoints, score)
+    for motifIndices, neg_likelihood in motifInstances:
+        logodds = computeLogOdds(
+            neg_likelihood, m, motifIndices, logFreqProbs, negLLMatrix)
+        motifScore = logodds * score
+        instanceList.append((-1*motifScore, m, motifIndices))
+    return instanceList
+
 
 def getGarbageCol(sequence, negLLMatrix, beta, gamma):
     '''
@@ -69,6 +98,7 @@ def getGarbageCol(sequence, negLLMatrix, beta, gamma):
             betaGarbage.add(i)
         currValue = newValue
     return origVals, betaGarbage
+
 
 def greedy_assign(sequence, instanceList):
     '''
@@ -138,29 +168,35 @@ def find_motifs(sequence, maxMotifs=None):
     motif_results = GetMotifs(collapsed)  # [(motif length), [<start_indices>]]
     processed_motif_list = []  # score, motif
     for length, incidences in motif_results:
-        if filterOverlapping(incidences, length) == 1: continue
+        if filterOverlapping(incidences, length) == 1:
+            continue
         motif = collapsed[incidences[0]:incidences[0]+length]
-        pscore = PoissonMotifScore(totLength, logFreqProbs, motif, len(incidences))
+        pscore = PoissonMotifScore(
+            totLength, logFreqProbs, motif, len(incidences))
         processed_motif_list.append((pscore, motif, incidences))
     processed_motif_list.sort()  # sort by score, smallest first
     if maxMotifs:
         processed_motif_list = processed_motif_list[:maxMotifs]
 
-    #perform Holm to weed out scores:
+    # perform Holm to weed out scores:
     alpha = 0.05
     n = len(processed_motif_list)
     gscores = []
     for i in range(n):
         pvalue, motif, incidences = processed_motif_list[i]
-        if pvalue > alpha/(n-i): break 
-        gscores.append(MotifScore(totLength, logFreqProbs, motif,len(incidences)))
+        if pvalue > alpha/(n-i):
+            break
+        gscores.append(MotifScore(
+            totLength, logFreqProbs, motif, len(incidences)))
     gscores = np.array(gscores)/np.sum(gscores)
     weeded_results = []
     for i, gscore in enumerate(gscores):
         _, motif, incidences = processed_motif_list[i]
-        motifIncidenceLengths = inflateMotifLengths(incidences, orig_indices, len(motif))
+        motifIncidenceLengths = inflateMotifLengths(
+            incidences, orig_indices, len(motif))
         weeded_results.append((motif, motifIncidenceLengths, gscore))
     return weeded_results
+
 
 def filterOverlapping(incidences, length):
     count = 1
@@ -183,6 +219,7 @@ def PoissonMotifScore(totLength, logFreqProbs, motif, numIncidences):
     lamb = np.exp(logscore_indep + np.log(database_size))
     prob = 1 - poisson.cdf(numIncidences, lamb)
     return prob
+
 
 def MotifScore(totLength, logFreqProbs, motif, numIncidences):
     '''
@@ -253,7 +290,7 @@ def getMotifIndepProb(motif, logFreqProbs):
 
 def computeLogOdds(neg_likelihood, motif, motifIndices, logFreqProbs, negLLMatrix):
     # ignore likelihood for now
-    negLLSubset = negLLMatrix[motifIndices[0]:motifIndices[-1]+1,:]
+    negLLSubset = negLLMatrix[motifIndices[0]:motifIndices[-1]+1, :]
     n = negLLSubset.shape[0]
     expanded_seq = generateExpandedMotif(motif, motifIndices)
     assert len(expanded_seq) == n
