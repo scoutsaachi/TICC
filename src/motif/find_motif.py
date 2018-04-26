@@ -33,14 +33,12 @@ def PerformAssignment(sequence, negLLMatrix, solver):
     # find common motifs with scores
     motifs = find_motifs(sequence, solver.maxMotifs)
     nMotifsFound = len(motifs)
-    # for m, lengths, score in motifs:
-    #     print(m, score, lengths.shape[0])
-    # print("-----")
     instanceList = []  # list of (score, motif, indices)
     garbageCol, betaGarbage = getGarbageCol(
         sequence, negLLMatrix, solver.beta, solver.gamma)
     futures = [None]*nMotifsFound
     for i, motifTuple in enumerate(motifs):
+        # motifTuple is motif lengths, motif
         futures[i] = solver.pool.apply_async(motifWorker,
             (motifTuple, solver.beta, solver.gamma, negLLMatrix,
             garbageCol, betaGarbage, logFreqProbs))
@@ -52,25 +50,23 @@ def PerformAssignment(sequence, negLLMatrix, solver):
     
     instanceList.sort()    
     final_assignment, motif_result = greedy_assignv2(sequence, instanceList, solver.motifReq)
-    # heapq.heapify(instanceList)
-    # final_assignment, motif_result, _ = greedy_assign(
-    #     sequence, instanceList)
     print (motif_result)
     if np.all(final_assignment == sequence):
         print ("assignment not changed")
 
     return final_assignment, motif_result
 
-def motifWorker(motifTuple, beta, gamma, negLLMatrix, garbageCol, betaGarbage, logFreqProbs):
-    m, motifIncidenceLengths, score = motifTuple
+def motifWorker(totLength, motifTuple, beta, gamma, negLLMatrix, garbageCol, betaGarbage, logFreqProbs):
+    m, motifIncidenceLengths = motifTuple
     instanceList = []
     motif_hmm = MotifHMM(negLLMatrix, m, beta, gamma,
                          motifIncidenceLengths, garbageCol, betaGarbage)
-    _, motifInstances = motif_hmm.SolveAndReturn()  # (changepoints, score)
+    _, motifInstances = motif_hmm.SolveAndReturn()  # (changepoints)
+    score = MotifScore(totLength, logFreqProbs, motif, len(motifInstances))
     for motifIndices, neg_likelihood in motifInstances:
         logodds = computeLogOdds(
             neg_likelihood, m, motifIndices, logFreqProbs, negLLMatrix)
-        motifScore = logodds * score
+        motifScore = logodds + score # TODO, add or multiply?
         instanceList.append((-1*motifScore, tuple(m), motifIndices))
     return instanceList
 
@@ -246,13 +242,11 @@ def find_motifs(sequence, maxMotifs=None):
     motif_results = GetMotifs(collapsed)  # [(motif length), [<start_indices>]]
     processed_motif_list = []  # score, motif
     for length, incidences in motif_results:
-        if filterOverlapping(incidences, length) == 1:
-            continue
+        numNotOverlapping = filterOverlapping(incidences, length)
         motif = collapsed[incidences[0]:incidences[0]+length]
-        if len(motif) > 10 or checkPeriodic(motif):
+        if numNotOverlapping == 1 or checkPeriodic(motif):
             continue
-        pscore = PoissonMotifScore(
-            totLength, logFreqProbs, motif, len(incidences))
+        pscore = PoissonMotifScore(totLength, logFreqProbs, motif, numNotOverlapping)
         processed_motif_list.append((pscore, motif, incidences))
     processed_motif_list.sort()  # sort by score, smallest first
     if maxMotifs:
@@ -261,20 +255,14 @@ def find_motifs(sequence, maxMotifs=None):
     # perform Holm to weed out scores:
     alpha = 0.05
     n = len(processed_motif_list)
-    gscores = []
+    weeded_results = []
     for i in range(n):
         pvalue, motif, incidences = processed_motif_list[i]
         if pvalue > alpha/(n-i):
             break
-        gscores.append(MotifScore(
-            totLength, logFreqProbs, motif, len(incidences)))
-    gscores = np.array(gscores)/np.sum(gscores)
-    weeded_results = []
-    for i, gscore in enumerate(gscores):
-        _, motif, incidences = processed_motif_list[i]
         motifIncidenceLengths = inflateMotifLengths(
             incidences, orig_indices, len(motif))
-        weeded_results.append((motif, motifIncidenceLengths, gscore))
+        weeded_results.append((motif, motifIncidenceLengths))
     return weeded_results
 
 
@@ -291,12 +279,24 @@ def filterOverlapping(incidences, length):
             count += 1
     return count
 
+def GetPoissonMotifLambda(totLength, logFreqProbs, motif):
+    ''' return lambda for poisson estimating non-overlapping '''
+    logscore_indep = getMotifIndepProb(motif, logFreqProbs)
+    currOverlapSum = 0
+    currProb = logscore_indep
+    motifStr = "".join(motif)
+    currMotifSuffix = motifStr
+    for i in range(len(motif)-1):
+        deletedLetter = currMotifSuffix[:-1]
+        currMotifSuffix = currMotifSuffix[:-1]
+        currProb += logFreqProbs[deletedLetter]
+        if motifStr.endswith(currMotifSuffix):
+            currOverlapSum += np.exp(currProb)
+    lamb = totLength*(np.exp(logscore_indep)/(1+currOverlapSum))
+    return lamb
 
 def PoissonMotifScore(totLength, logFreqProbs, motif, numIncidences):
-    logscore_indep = getMotifIndepProb(motif, logFreqProbs)
-    motifLength = len(motif)
-    database_size = totLength - (motifLength - 1)
-    lamb = np.exp(logscore_indep + np.log(database_size))
+    lamb = GetPoissonMotifLambda(totLength, logFreqProbs, motif)
     prob = 1 - poisson.cdf(numIncidences, lamb)
     return prob
 
@@ -306,12 +306,8 @@ def MotifScore(totLength, logFreqProbs, motif, numIncidences):
         perform motif score: G-test
         return a score. 
     '''
-    motifLength = len(motif)
-    database_size = totLength - (motifLength - 1)
-
-    logscore_indep = getMotifIndepProb(motif, logFreqProbs)
-    log_E = logscore_indep + np.log(database_size)  # p_ind
-
+    E = GetPoissonMotifLambda(totLength, logFreqProbs, motif)
+    log_E = np.log(E)
     N = numIncidences
     score = 2*N*(np.log(N)-log_E)
     return score
@@ -377,7 +373,7 @@ def computeLogOdds(neg_likelihood, motif, motifIndices, logFreqProbs, negLLMatri
     likelihood = negLLSubset[range(n), expanded_seq.astype(int).tolist()]
     likelihood = -1*np.sum(likelihood)
     indiv_prob = getMotifIndepProb(expanded_seq, logFreqProbs)
-    return likelihood - indiv_prob
+    return 2*(likelihood - indiv_prob)
 
 
 def inflateMotifLengths(collapsedStartIndices, orig_indices, length):
