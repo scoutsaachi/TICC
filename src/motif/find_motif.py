@@ -112,13 +112,13 @@ def greedy_assignv2(sequence, instanceList, motifReq):
         _, motif, indices = instanceList[motifIDX]
         oldSet = motifResult[motif].copy()
         gap = (indices[0], indices[-1])
-        for i in range(gap[0], gap[1]):
+        for i in range(gap[0], gap[1]+1):
             losers = tentative[i].copy()
             for loser in losers: # for each loser who lost out on this spot
                 if loser == motifIDX: continue # not counting ourselves as losers
                 _, loser_m, loserIndices = instanceList[loser]
                 loserGap = (loserIndices[0], loserIndices[-1])
-                for j in range(loserGap[0], loserGap[1]): # remove this loser from tentative
+                for j in range(loserGap[0], loserGap[1]+1): # remove this loser from tentative
                     tentative[j].discard(loser)
                 motifResult[loser_m].discard(loser) # remove this loser from the motifResult
             assert len(tentative[i]) == 1
@@ -133,7 +133,7 @@ def greedy_assignv2(sequence, instanceList, motifReq):
         gap = (indices[0], indices[-1])
         # add ourselves to the result set
         motifResult[motif].add(motifIDX)
-        for i in range(gap[0], gap[1]): # make ourselves tentative
+        for i in range(gap[0], gap[1]+1): # make ourselves tentative
             tentative[i].add(motifIDX)
     
     def isLocked(idx):
@@ -152,10 +152,12 @@ def greedy_assignv2(sequence, instanceList, motifReq):
         makeTentative(motifIndex) # are now tentative and have added to motifResult
         if len(motifResult[motif]) > motifReq:
             # was already a locked motif, so just update this index
+            print("already locked")
             lock(motifIndex)
         if len(motifResult[motif]) == motifReq:
             # now a locked motif so lock everything in this set
             winners = motifResult[motif].copy()
+            print("newly locking %s" % winners)
             for newlyLockedIDX in winners:
                 lock(newlyLockedIDX)
     finalResult = {}
@@ -224,6 +226,11 @@ def generateExpandedMotif(motif, motifIndices):
         result[start:end] = val
     return result
 
+def checkPeriodic(S):
+    S = "".join(map(str, S))
+    doubleS = S + S
+    curtailedDoubleS = doubleS[1:-1]
+    return S in curtailedDoubleS
 
 def find_motifs(sequence, maxMotifs=None):
     '''
@@ -242,6 +249,8 @@ def find_motifs(sequence, maxMotifs=None):
         if filterOverlapping(incidences, length) == 1:
             continue
         motif = collapsed[incidences[0]:incidences[0]+length]
+        if len(motif) > 10 or checkPeriodic(motif):
+            continue
         pscore = PoissonMotifScore(
             totLength, logFreqProbs, motif, len(incidences))
         processed_motif_list.append((pscore, motif, incidences))
