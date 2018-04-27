@@ -68,6 +68,7 @@ def motifWorker(totLength, motifTuple, beta, gamma, negLLMatrix, garbageCol, bet
     for motifIndices, neg_likelihood in motifInstances:
         logodds = computeLogOdds(
             neg_likelihood, m, motifIndices, logFreqProbs, negLLMatrix)
+        print(m, logodds, score)
         motifScore = logodds * score # TODO, add or multiply?
         instanceList.append((-1*motifScore, tuple(m), motifIndices))
     return instanceList
