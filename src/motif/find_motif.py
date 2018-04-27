@@ -30,6 +30,8 @@ def PerformAssignment(sequence, negLLMatrix, solver):
     motifs: the motifs found, as a dict of {motif: [(start1,end1), (start2,end2)...]}
     '''
     logFreqProbs = getFrequencyProbs(sequence)
+    _, collapsed = collapse(sequence)
+    totLength = len(collapsed)
     # find common motifs with scores
     motifs = find_motifs(sequence, solver.maxMotifs)
     nMotifsFound = len(motifs)
@@ -40,13 +42,13 @@ def PerformAssignment(sequence, negLLMatrix, solver):
     for i, motifTuple in enumerate(motifs):
         # motifTuple is motif lengths, motif
         futures[i] = solver.pool.apply_async(motifWorker,
-            (motifTuple, solver.beta, solver.gamma, negLLMatrix,
+            (totLength, motifTuple, solver.beta, solver.gamma, negLLMatrix,
             garbageCol, betaGarbage, logFreqProbs))
     instanceList = []
     for i in range(nMotifsFound):
         worker_result = futures[i].get()
         instanceList += worker_result
-        print("motif done", motifs[i][0])
+        print("motif done", motifs[i][0], worker_result[0])
     
     instanceList.sort()    
     final_assignment, motif_result = greedy_assignv2(sequence, instanceList, solver.motifReq)
@@ -62,11 +64,11 @@ def motifWorker(totLength, motifTuple, beta, gamma, negLLMatrix, garbageCol, bet
     motif_hmm = MotifHMM(negLLMatrix, m, beta, gamma,
                          motifIncidenceLengths, garbageCol, betaGarbage)
     _, motifInstances = motif_hmm.SolveAndReturn()  # (changepoints)
-    score = MotifScore(totLength, logFreqProbs, motif, len(motifInstances))
+    score = MotifScore(totLength, logFreqProbs, m, len(motifInstances))
     for motifIndices, neg_likelihood in motifInstances:
         logodds = computeLogOdds(
             neg_likelihood, m, motifIndices, logFreqProbs, negLLMatrix)
-        motifScore = logodds + score # TODO, add or multiply?
+        motifScore = logodds * score # TODO, add or multiply?
         instanceList.append((-1*motifScore, tuple(m), motifIndices))
     return instanceList
 
@@ -284,10 +286,11 @@ def GetPoissonMotifLambda(totLength, logFreqProbs, motif):
     logscore_indep = getMotifIndepProb(motif, logFreqProbs)
     currOverlapSum = 0
     currProb = logscore_indep
-    motifStr = "".join(motif)
+    motifStr = [str(m.astype(int)) for m in motif]
+    motifStr = "".join(motifStr)
     currMotifSuffix = motifStr
     for i in range(len(motif)-1):
-        deletedLetter = currMotifSuffix[:-1]
+        deletedLetter = int(currMotifSuffix[-1])
         currMotifSuffix = currMotifSuffix[:-1]
         currProb += logFreqProbs[deletedLetter]
         if motifStr.endswith(currMotifSuffix):
