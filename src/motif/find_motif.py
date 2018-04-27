@@ -67,7 +67,7 @@ def motifWorker(totLength, motifTuple, beta, gamma, negLLMatrix, garbageCol, bet
     score = MotifScore(totLength, logFreqProbs, m, len(motifInstances))
     for motifIndices, neg_likelihood in motifInstances:
         logodds = computeLogOdds(
-            neg_likelihood, m, motifIndices, logFreqProbs, negLLMatrix)
+            neg_likelihood, m, motifIndices, garbageCol, negLLMatrix)
         print(m, logodds, score)
         motifScore = logodds * score # TODO, add or multiply?
         instanceList.append((-1*motifScore, tuple(m), motifIndices))
@@ -368,7 +368,7 @@ def getMotifIndepProb(motif, logFreqProbs):
     return logscore_indep
 
 
-def computeLogOdds(neg_likelihood, motif, motifIndices, logFreqProbs, negLLMatrix):
+def computeLogOdds(motif, motifIndices, garbageCol, negLLMatrix):
     # ignore likelihood for now
     negLLSubset = negLLMatrix[motifIndices[0]:motifIndices[-1]+1, :]
     n = negLLSubset.shape[0]
@@ -376,7 +376,13 @@ def computeLogOdds(neg_likelihood, motif, motifIndices, logFreqProbs, negLLMatri
     assert len(expanded_seq) == n
     likelihood = negLLSubset[range(n), expanded_seq.astype(int).tolist()]
     likelihood = -1*np.sum(likelihood)
-    indiv_prob = getMotifIndepProb(expanded_seq, logFreqProbs)
+
+    # indiv_probs are just the garbage columns
+    garbage_likelihoods = garbageCol[motifIndices[0]:motifIndices[-1]+1]
+    print(garbage_likelihoods)
+    assert False 
+    indiv_prob = np.sum(garbage_likelihoods)
+    # indiv_prob = getMotifIndepProb(expanded_seq, logFreqProbs)
     return 2*(likelihood - indiv_prob)
 
 
