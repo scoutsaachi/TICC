@@ -66,7 +66,7 @@ def motifWorker(totLength, motifTuple, beta, gamma, negLLMatrix, garbageCol, bet
     _, motifInstances = motif_hmm.SolveAndReturn()  # (changepoints)
     score = MotifScore(totLength, logFreqProbs, m, len(motifInstances))
     for motifIndices, neg_likelihood in motifInstances:
-        logodds = computeLogOdds(m, motifIndices, garbageCol, negLLMatrix)
+        logodds = computeLogOdds(m, motifIncidenceLengths, motifIndices, garbageCol, negLLMatrix)
         #print(m, logodds, score)
         motifScore = logodds + score # TODO, add or multiply?
         instanceList.append((-1*motifScore, tuple(m), motifIndices))
@@ -369,7 +369,7 @@ def getMotifIndepProb(motif, logFreqProbs):
     return logscore_indep
 
 
-def computeLogOdds(motif, motifIndices, garbageCol, negLLMatrix):
+def computeLogOdds(motif, motifIncidenceLengths, motifIndices, garbageCol, negLLMatrix):
     # ignore likelihood for now
     negLLSubset = negLLMatrix[motifIndices[0]:motifIndices[-1]+1, :]
     n = negLLSubset.shape[0]
@@ -382,8 +382,16 @@ def computeLogOdds(motif, motifIndices, garbageCol, negLLMatrix):
     garbage_likelihoods = garbageCol[motifIndices[0]:motifIndices[-1]+1]
     indiv_prob = -1*np.sum(garbage_likelihoods)
     # indiv_prob = getMotifIndepProb(expanded_seq, logFreqProbs)
-    return 2*(likelihood - indiv_prob)
 
+    #distance probs:
+    distanceProbs = 0
+    means, stdevs = motifIncidenceLengths
+    for indexPair in motifIndices:
+        dist = indexPair[1]-indexPair[0]
+        prob = scipy.stats.norm.pdf(dist, means, x)
+        distanceProbs += np.log(prob)
+    distanceProbs = distanceProbs/n
+    return 2*(likelihood - indiv_prob + distanceProbs)
 
 def inflateMotifLengths(collapsedStartIndices, orig_indices, length):
     '''
@@ -396,6 +404,9 @@ def inflateMotifLengths(collapsedStartIndices, orig_indices, length):
 
     Returns
     ----------
+    --Edit if collapsed motif is length K, return two lists: [means, stdevs], each
+    of length K
+
     If the collapsed motif is length K, and there are N incidences of the motif,
     return a N x K matrix A where A[i,j] is the length of the jth motif segment 
     in incidence i
@@ -409,7 +420,10 @@ def inflateMotifLengths(collapsedStartIndices, orig_indices, length):
             segment = orig_indices[index]
             segLength = segment[1] - segment[0] + 1
             result[i, j] = segLength
-    return result
+    means = np.mean(result, axis=0)
+    stdevs = np.std(result, axis=0)
+    assert len(means) == K
+    return (means, stdevs)
 
 # find_motifs([1,1,1,2,2,2,3,3,3,1,1,2,2,3,3])
 # find_motifs([1, 2, 3, 5, 1, 2, 3, 6, 1, 2, 3, 4, 5, 3, 4,
