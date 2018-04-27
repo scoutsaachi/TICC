@@ -48,7 +48,7 @@ def PerformAssignment(sequence, negLLMatrix, solver):
     for i in range(nMotifsFound):
         worker_result = futures[i].get()
         instanceList += worker_result
-        print("motif done", motifs[i][0], worker_result[0])
+        #print("motif done", motifs[i][0], worker_result[0])
     
     instanceList.sort()    
     final_assignment, motif_result = greedy_assignv2(sequence, instanceList, solver.motifReq)
@@ -67,7 +67,7 @@ def motifWorker(totLength, motifTuple, beta, gamma, negLLMatrix, garbageCol, bet
     score = MotifScore(totLength, logFreqProbs, m, len(motifInstances))
     for motifIndices, neg_likelihood in motifInstances:
         logodds = computeLogOdds(m, motifIndices, garbageCol, negLLMatrix)
-        print(m, logodds, score)
+        #print(m, logodds, score)
         motifScore = logodds + score # TODO, add or multiply?
         instanceList.append((-1*motifScore, tuple(m), motifIndices))
     return instanceList
@@ -246,14 +246,13 @@ def find_motifs(sequence, maxMotifs=None):
     for length, incidences in motif_results:
         numNotOverlapping = filterOverlapping(incidences, length)
         motif = collapsed[incidences[0]:incidences[0]+length]
-        if numNotOverlapping == 1 or checkPeriodic(motif):
+        if numNotOverlapping == 1 or checkPeriodic(motif) or len(motif) > 7:
             continue
         pscore = PoissonMotifScore(totLength, logFreqProbs, motif, numNotOverlapping)
         processed_motif_list.append((pscore, motif, incidences))
     processed_motif_list.sort()  # sort by score, smallest first
     if maxMotifs:
-        processed_motif_list = processed_motif_list[:maxMotifs]
-
+        processed_motif_list = processed_motif_list
     # perform Holm to weed out scores:
     alpha = 0.05
     n = len(processed_motif_list)
@@ -285,6 +284,7 @@ def GetPoissonMotifLambda(totLength, logFreqProbs, motif):
     ''' return lambda for poisson estimating non-overlapping '''
     logscore_indep = getMotifIndepProb(motif, logFreqProbs)
     currOverlapSum = 0
+    '''
     currProb = logscore_indep
     motifStr = [str(m.astype(int)) for m in motif]
     motifStr = "".join(motifStr)
@@ -295,12 +295,14 @@ def GetPoissonMotifLambda(totLength, logFreqProbs, motif):
         currProb += logFreqProbs[deletedLetter]
         if motifStr.endswith(currMotifSuffix):
             currOverlapSum += np.exp(currProb)
+    '''
     lamb = totLength*(np.exp(logscore_indep)/(1+currOverlapSum))
     return lamb
 
 def PoissonMotifScore(totLength, logFreqProbs, motif, numIncidences):
     lamb = GetPoissonMotifLambda(totLength, logFreqProbs, motif)
     prob = 1 - poisson.cdf(numIncidences, lamb)
+    print(motif, numIncidences, lamb, prob)
     return prob
 
 
@@ -378,8 +380,6 @@ def computeLogOdds(motif, motifIndices, garbageCol, negLLMatrix):
 
     # indiv_probs are just the garbage columns
     garbage_likelihoods = garbageCol[motifIndices[0]:motifIndices[-1]+1]
-    print(garbage_likelihoods)
-    assert False 
     indiv_prob = -1*np.sum(garbage_likelihoods)
     # indiv_prob = getMotifIndepProb(expanded_seq, logFreqProbs)
     return 2*(likelihood - indiv_prob)
