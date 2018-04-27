@@ -66,10 +66,9 @@ def motifWorker(totLength, motifTuple, beta, gamma, negLLMatrix, garbageCol, bet
     _, motifInstances = motif_hmm.SolveAndReturn()  # (changepoints)
     score = MotifScore(totLength, logFreqProbs, m, len(motifInstances))
     for motifIndices, neg_likelihood in motifInstances:
-        logodds = computeLogOdds(
-            neg_likelihood, m, motifIndices, garbageCol, negLLMatrix)
+        logodds = computeLogOdds(m, motifIndices, garbageCol, negLLMatrix)
         print(m, logodds, score)
-        motifScore = logodds * score # TODO, add or multiply?
+        motifScore = logodds + score # TODO, add or multiply?
         instanceList.append((-1*motifScore, tuple(m), motifIndices))
     return instanceList
 
@@ -381,7 +380,7 @@ def computeLogOdds(motif, motifIndices, garbageCol, negLLMatrix):
     garbage_likelihoods = garbageCol[motifIndices[0]:motifIndices[-1]+1]
     print(garbage_likelihoods)
     assert False 
-    indiv_prob = np.sum(garbage_likelihoods)
+    indiv_prob = -1*np.sum(garbage_likelihoods)
     # indiv_prob = getMotifIndepProb(expanded_seq, logFreqProbs)
     return 2*(likelihood - indiv_prob)
 
