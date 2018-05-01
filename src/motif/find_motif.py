@@ -6,13 +6,6 @@ from bitarray import bitarray
 from collections import Counter, namedtuple,defaultdict
 from scipy.stats import poisson
 # https://code.google.com/archive/p/py-rstr-max/
-# TODO: cite
-'''
-MotifInstance = namedtuple('MotifInstance', 
-    ['motif', 'motif score', 'motif indices'])
-Motif = namedtuple('Motif', ['motif', 'motifIncidenceLengths'])
-'''
-
 
 def PerformAssignment(sequence, negLLMatrix, solver):
     '''
@@ -48,15 +41,22 @@ def PerformAssignment(sequence, negLLMatrix, solver):
     for i in range(nMotifsFound):
         worker_result = futures[i].get()
         instanceList += worker_result
-        #print("motif done", motifs[i][0], worker_result[0])
-    
     instanceList.sort()    
     final_assignment, motif_result = greedy_assignv2(sequence, instanceList, solver.motifReq)
     print (motif_result)
     if np.all(final_assignment == sequence):
         print ("assignment not changed")
+    return final_assignment, motif_result, computeFinalMotifScores(final_assignment, motif_result)
 
-    return final_assignment, motif_result
+def computeFinalMotifScores(final_assignment, motif_result):
+    logFreqProbs = getFrequencyProbs(final_assignment)
+    motif_scores = []
+    for m, incidences in motif_result.items():
+        score = MotifScore(len(final_assignment), logFreqProbs, motif, len(incidences))
+        motif_scores.append((m, score))
+    motif_scores.sort(reverse=True, key=lambda m:m[1])
+    return motif_scores
+    
 
 def motifWorker(totLength, motifTuple, beta, gamma, negLLMatrix, garbageCol, betaGarbage, logFreqProbs):
     m, motifIncidenceLengths = motifTuple
@@ -67,8 +67,7 @@ def motifWorker(totLength, motifTuple, beta, gamma, negLLMatrix, garbageCol, bet
     score = MotifScore(totLength, logFreqProbs, m, len(motifInstances))
     for motifIndices, neg_likelihood in motifInstances:
         logodds = computeLogOdds(m, motifIncidenceLengths, motifIndices, garbageCol, negLLMatrix)
-        #print(m, logodds, score)
-        motifScore = logodds + score # TODO, add or multiply?
+        motifScore = logodds + score 
         instanceList.append((-1*motifScore, tuple(m), motifIndices))
     return instanceList
 
@@ -171,44 +170,6 @@ def greedy_assignv2(sequence, instanceList, motifReq):
         finalResult[m] = gaps
     return result, finalResult
 
-def greedy_assign(sequence, instanceList):
-    '''
-    Given the motif assignments in instanceList, greedily assign
-    the sequence to motifs
-
-    Parameters
-    ---------
-    sequence: the list of current assignments without motif guiding
-    instanceList: a heapified list of (motifScore, motif, [motifIndices])
-
-    Returns
-    -------
-    value1: the new assignments
-    value2: dictionary of motifs: {motif: [indices of instances]}
-    '''
-    result = sequence.copy()
-    taken = bitarray(len(sequence))
-    taken.setall(False)
-    motifs = {}  # motif to instances
-    while len(instanceList) != 0:
-        score, motif, indices = heapq.heappop(instanceList)
-        print (-1*score, motif)
-        assert len(motif) == len(indices) - 1
-        gap = (indices[0], indices[-1])
-        if taken[gap[0]:gap[1]+1].any():
-            # TODO: allow motifs to intrude on the ends of other motifs
-            print("intruding")
-            continue  # this spot has already been taken
-        taken[gap[0]:gap[1]+1] = 1  # reserve this spot
-        # fill motif
-        result[gap[0]:gap[1]+1] = generateExpandedMotif(motif, indices)
-        key = tuple(motif)
-        if key not in motifs:
-            motifs[key] = []
-        motifs[key].append(gap)
-    return result, motifs, taken
-
-
 def generateExpandedMotif(motif, motifIndices):
     '''
     given the motif and the indices corresponding to each
@@ -230,6 +191,17 @@ def checkPeriodic(S):
     curtailedDoubleS = doubleS[1:-1]
     return S in curtailedDoubleS
 
+def replaceRedundancy(motifStr, candidateStrings):
+    '''candidateList sorted from smallest to biggest'''
+    ''' motifStr as string that is comma sep'''
+    m = motifStr
+    for i,cs in reversed(list(enumerate(candidateStrings))):
+        replacementStr = str(-1*(i+1))
+        print(cs, m, replacementStr)
+        m = m.replace(cs, replacementStr)
+    return m
+
+
 def find_motifs(sequence, maxMotifs=None):
     '''
     Get the maximal motifs in the sequence along with their scores
@@ -242,29 +214,29 @@ def find_motifs(sequence, maxMotifs=None):
     logFreqProbs = getFrequencyProbs(collapsed)
     totLength = len(collapsed)
     motif_results = GetMotifs(collapsed)  # [(motif length), [<start_indices>]]
-    processed_motif_list = []  # score, motif
+    motif_results.sort(key=lambda mr: mr[0]) # sort so that the shortest is first
+
+    candidateStrings = [] # list of candidate motifs in string form sep by commas
+    candidates = [] # motifs, incidences
+    alpha = 0.01
+
     for length, incidences in motif_results:
-        numNotOverlapping = filterOverlapping(incidences, length)
+        numIncidences = filterOverlapping(incidences, length)
+        if numIncidences == 1: continue
+        # dynamic candidate replacement
         motif = collapsed[incidences[0]:incidences[0]+length]
-        if numNotOverlapping == 1 or checkPeriodic(motif) or len(motif) > 7:
-            continue
-        pscore = PoissonMotifScore(totLength, logFreqProbs, motif, numNotOverlapping)
-        processed_motif_list.append((pscore, motif, incidences))
-    processed_motif_list.sort()  # sort by score, smallest first
-    if maxMotifs:
-        processed_motif_list = processed_motif_list
-    # perform Holm to weed out scores:
-    alpha = 0.05
-    n = len(processed_motif_list)
-    weeded_results = []
-    for i in range(n):
-        pvalue, motif, incidences = processed_motif_list[i]
-        if pvalue > alpha/(n-i):
-            break
-        motifIncidenceLengths = inflateMotifLengths(
-            incidences, orig_indices, len(motif))
-        weeded_results.append((motif, motifIncidenceLengths))
-    return weeded_results
+        motifStr = ",".join([str(m) for m in motif])
+        motifStrReplaced = replaceRedundancy(m, candidateStrings)
+        log_prob_ind = getMotifIndepProb(motifStrReplaced.split(","), logFreqProbs)
+        # calculate pscore
+        pscore = binom.cdf(numIncidences, totLength, log_prob_ind)
+        if pscore < alpha: # significant
+            candidateStrings.append(motifStr)
+            idx = -1*len(candidateStrings)
+            logFreqProbs[idx] = np.log(float(numIncidences)/totLength) # update probs
+            motifIncidenceLengths = inflateMotifLengths(incidences, orig_indices, len(motif))
+            candidates.append((motif, motifIncidenceLengths))
+    return candidates
 
 
 def filterOverlapping(incidences, length):
@@ -280,29 +252,32 @@ def filterOverlapping(incidences, length):
             count += 1
     return count
 
-def GetPoissonMotifLambda(totLength, logFreqProbs, motif):
-    ''' return lambda for poisson estimating non-overlapping '''
+def GetPoissonMotifLambda(totLength, prob, motif, logFreqProbs):
+    ''' return lambda for poisson estimating non-overlapping
+        motif is an array
+        prob is the probability of that array occurring
+    '''
     logscore_indep = getMotifIndepProb(motif, logFreqProbs)
     currOverlapSum = 0
-    '''
     currProb = logscore_indep
-    motifStr = [str(m.astype(int)) for m in motif]
-    motifStr = "".join(motifStr)
-    currMotifSuffix = motifStr
+    motifStrArr = [str(m.astype(int)) for m in motif]
+    motifStr = ",".join(motifStrArr)
+    currMotifSuffix = motifStrArr[:]
     for i in range(len(motif)-1):
         deletedLetter = int(currMotifSuffix[-1])
         currMotifSuffix = currMotifSuffix[:-1]
         currProb += logFreqProbs[deletedLetter]
+        # check if overlap is true
+        currStr = ",".join(currMotifSuffix)
+        motifStr = ",".join(motifStrArr)
         if motifStr.endswith(currMotifSuffix):
             currOverlapSum += np.exp(currProb)
-    '''
     lamb = totLength*(np.exp(logscore_indep)/(1+currOverlapSum))
     return lamb
 
 def PoissonMotifScore(totLength, logFreqProbs, motif, numIncidences):
     lamb = GetPoissonMotifLambda(totLength, logFreqProbs, motif)
     prob = 1 - poisson.cdf(numIncidences, lamb)
-    print(motif, numIncidences, lamb, prob)
     return prob
 
 
@@ -370,7 +345,6 @@ def getMotifIndepProb(motif, logFreqProbs):
 
 
 def computeLogOdds(motif, motifIncidenceLengths, motifIndices, garbageCol, negLLMatrix):
-    # ignore likelihood for now
     negLLSubset = negLLMatrix[motifIndices[0]:motifIndices[-1]+1, :]
     n = negLLSubset.shape[0]
     expanded_seq = generateExpandedMotif(motif, motifIndices)
@@ -381,8 +355,7 @@ def computeLogOdds(motif, motifIncidenceLengths, motifIndices, garbageCol, negLL
     # indiv_probs are just the garbage columns
     garbage_likelihoods = garbageCol[motifIndices[0]:motifIndices[-1]+1]
     indiv_prob = -1*np.sum(garbage_likelihoods)
-    # indiv_prob = getMotifIndepProb(expanded_seq, logFreqProbs)
-
+    '''
     #distance probs:
     distanceProbs = 0
     means, stdevs = motifIncidenceLengths
@@ -391,7 +364,8 @@ def computeLogOdds(motif, motifIncidenceLengths, motifIndices, garbageCol, negLL
         prob = scipy.stats.norm.pdf(dist, means, x)
         distanceProbs += np.log(prob)
     distanceProbs = distanceProbs/n
-    return 2*(likelihood - indiv_prob + distanceProbs)
+    '''
+    return 2*(likelihood - indiv_prob)
 
 def inflateMotifLengths(collapsedStartIndices, orig_indices, length):
     '''
@@ -424,7 +398,3 @@ def inflateMotifLengths(collapsedStartIndices, orig_indices, length):
     stdevs = np.std(result, axis=0)
     assert len(means) == K
     return (means, stdevs)
-
-# find_motifs([1,1,1,2,2,2,3,3,3,1,1,2,2,3,3])
-# find_motifs([1, 2, 3, 5, 1, 2, 3, 6, 1, 2, 3, 4, 5, 3, 4,
-#              4, 6, 5, 1, 2, 3, 4, 5, 4, 5, 3, 1, 2, 3, 1, 2])
