@@ -78,6 +78,7 @@ class TICCSolver:
 
     def solveWithInitialization(self, clustered_points, useMotif):
         motifs = old_motifs = None
+        rankedMotifs=None
         assert self.maxIters > 0  # must have at least one iteration
         num_stacked = self.window_size
         beta = self.beta  # switching penalty
@@ -114,7 +115,7 @@ class TICCSolver:
             clustered_points = updateClusters(
                 LLE_all_points_clusters, switch_penalty=beta)
             if useMotif:
-                clustered_points, motifs = PerformAssignment(
+                clustered_points, motifs, rankedMotifs = PerformAssignment(
                     clustered_points, LLE_all_points_clusters, self)
                 print(clustered_points, motifs)
             before_zero = clustered_points.copy()
@@ -132,8 +133,7 @@ class TICCSolver:
                 break
             old_clustered_points = before_zero
             old_motifs = motifs
-            # end of training
-        return (clustered_points, train_cluster_inverse, motifs)
+        return (clustered_points, train_cluster_inverse, motifs, rankedMotifs)
 
     def getLikelihood(self, computed_cov, cluster_mean_stacked_info, clustered_points):
         '''
