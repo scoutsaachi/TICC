@@ -56,18 +56,18 @@ class TICCSolver:
             self.pool.join()
 
     def PerformFullTICC(self, initialClusteredPoints=None, useMotif=False):
-        train_cluster_inverse = motifs = None
+        train_cluster_inverse = motifs = motifsRanked=None
         clustered_points = initialClusteredPoints
         if clustered_points is None:
             # perform no motif ticc
             initialClusteredPoints = self.getInitialClusteredPoints()
-            clustered_points, train_cluster_inverse, _ = self.solveWithInitialization(
+            clustered_points, train_cluster_inverse, _, _ = self.solveWithInitialization(
                 initialClusteredPoints, useMotif=False)
         if useMotif:
             # perform secondary motif ticc if specified
-            clustered_points, train_cluster_inverse, motifs = self.solveWithInitialization(
+            clustered_points, train_cluster_inverse, motifs, motifsRanked = self.solveWithInitialization(
                 clustered_points, useMotif=True)
-        return clustered_points, train_cluster_inverse, motifs
+        return clustered_points, train_cluster_inverse, motifs, motifsRanked
 
     def getInitialClusteredPoints(self):
         gmm = mixture.GaussianMixture(
@@ -117,7 +117,7 @@ class TICCSolver:
             if useMotif:
                 clustered_points, motifs, rankedMotifs = PerformAssignment(
                     clustered_points, LLE_all_points_clusters, self)
-                print(clustered_points, motifs)
+                print(motifs, rankedMotifs)
             before_zero = clustered_points.copy()
             self.assignToZeroClusters(
                 clustered_points, old_computed_cov, computed_cov, cluster_mean_stacked_info)

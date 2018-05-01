@@ -4,7 +4,7 @@ import heapq
 import numpy as np
 from bitarray import bitarray
 from collections import Counter, namedtuple,defaultdict
-from scipy.stats import poisson
+from scipy.stats import poisson,binom
 # https://code.google.com/archive/p/py-rstr-max/
 
 def PerformAssignment(sequence, negLLMatrix, solver):
@@ -22,6 +22,7 @@ def PerformAssignment(sequence, negLLMatrix, solver):
     result: the new assignment guided by the motifs
     motifs: the motifs found, as a dict of {motif: [(start1,end1), (start2,end2)...]}
     '''
+    sequence = [i.astype(int) for i in sequence]
     logFreqProbs = getFrequencyProbs(sequence)
     _, collapsed = collapse(sequence)
     totLength = len(collapsed)
@@ -52,7 +53,7 @@ def computeFinalMotifScores(final_assignment, motif_result):
     logFreqProbs = getFrequencyProbs(final_assignment)
     motif_scores = []
     for m, incidences in motif_result.items():
-        score = MotifScore(len(final_assignment), logFreqProbs, motif, len(incidences))
+        score = MotifScore(len(final_assignment), logFreqProbs, m, len(incidences))
         motif_scores.append((m, score))
     motif_scores.sort(reverse=True, key=lambda m:m[1])
     return motif_scores
@@ -78,7 +79,7 @@ def getGarbageCol(sequence, negLLMatrix, beta, gamma):
     column should be added by beta
     '''
     n = len(sequence)
-    origVals = negLLMatrix[range(n), sequence.astype(int)] - np.log(gamma)
+    origVals = negLLMatrix[range(n), sequence] - np.log(gamma)
     betaGarbage = set()
     # add in where the original subsumed switching costs
     currValue = sequence[0]
@@ -149,12 +150,10 @@ def greedy_assignv2(sequence, instanceList, motifReq):
         makeTentative(motifIndex) # are now tentative and have added to motifResult
         if len(motifResult[motif]) > motifReq:
             # was already a locked motif, so just update this index
-            print("already locked")
             lock(motifIndex)
         if len(motifResult[motif]) == motifReq:
             # now a locked motif so lock everything in this set
             winners = motifResult[motif].copy()
-            print("newly locking %s" % winners)
             for newlyLockedIDX in winners:
                 lock(newlyLockedIDX)
     finalResult = {}
@@ -177,7 +176,7 @@ def generateExpandedMotif(motif, motifIndices):
     '''
     motifStart = motifIndices[0]
     motifLength = motifIndices[-1] - motifIndices[0] + 1
-    result = np.zeros(motifLength)
+    result = np.zeros(motifLength, dtype='int')
     for i in range(len(motif)):  # fill this motif
         val = motif[i]
         start = motifIndices[i] - motifStart
@@ -196,8 +195,7 @@ def replaceRedundancy(motifStr, candidateStrings):
     ''' motifStr as string that is comma sep'''
     m = motifStr
     for i,cs in reversed(list(enumerate(candidateStrings))):
-        replacementStr = str(-1*(i+1))
-        print(cs, m, replacementStr)
+        replacementStr = str(-1*(i+1))+"."
         m = m.replace(cs, replacementStr)
     return m
 
@@ -212,13 +210,14 @@ def find_motifs(sequence, maxMotifs=None):
     '''
     orig_indices, collapsed = collapse(sequence)
     logFreqProbs = getFrequencyProbs(collapsed)
+    print(logFreqProbs)
     totLength = len(collapsed)
     motif_results = GetMotifs(collapsed)  # [(motif length), [<start_indices>]]
     motif_results.sort(key=lambda mr: mr[0]) # sort so that the shortest is first
-
+    print(totLength)
     candidateStrings = [] # list of candidate motifs in string form sep by commas
     candidates = [] # motifs, incidences
-    alpha = 0.01
+    alpha = 0.01/len(motif_results)
 
     for length, incidences in motif_results:
         numIncidences = filterOverlapping(incidences, length)
@@ -226,16 +225,18 @@ def find_motifs(sequence, maxMotifs=None):
         # dynamic candidate replacement
         motif = collapsed[incidences[0]:incidences[0]+length]
         motifStr = ",".join([str(m) for m in motif])
-        motifStrReplaced = replaceRedundancy(m, candidateStrings)
-        log_prob_ind = getMotifIndepProb(motifStrReplaced.split(","), logFreqProbs)
+        motifStrReplaced = replaceRedundancy(motifStr, candidateStrings)
+        motifReconstructed = [int(float(m)) for m in motifStrReplaced.split(",")]
+        log_prob_ind = getMotifIndepProb(motifReconstructed,  logFreqProbs)
         # calculate pscore
-        pscore = binom.cdf(numIncidences, totLength, log_prob_ind)
+        pscore = 1-binom.cdf(numIncidences, totLength, np.exp(log_prob_ind))
         if pscore < alpha: # significant
             candidateStrings.append(motifStr)
             idx = -1*len(candidateStrings)
             logFreqProbs[idx] = np.log(float(numIncidences)/totLength) # update probs
             motifIncidenceLengths = inflateMotifLengths(incidences, orig_indices, len(motif))
             candidates.append((motif, motifIncidenceLengths))
+    print(candidateStrings)
     return candidates
 
 
@@ -252,15 +253,14 @@ def filterOverlapping(incidences, length):
             count += 1
     return count
 
-def GetPoissonMotifLambda(totLength, prob, motif, logFreqProbs):
+def GetPoissonMotifLambda(totLength, logFreqProbs, motif):
     ''' return lambda for poisson estimating non-overlapping
         motif is an array
-        prob is the probability of that array occurring
     '''
     logscore_indep = getMotifIndepProb(motif, logFreqProbs)
     currOverlapSum = 0
     currProb = logscore_indep
-    motifStrArr = [str(m.astype(int)) for m in motif]
+    motifStrArr = [str(m) for m in motif]
     motifStr = ",".join(motifStrArr)
     currMotifSuffix = motifStrArr[:]
     for i in range(len(motif)-1):
@@ -270,7 +270,7 @@ def GetPoissonMotifLambda(totLength, prob, motif, logFreqProbs):
         # check if overlap is true
         currStr = ",".join(currMotifSuffix)
         motifStr = ",".join(motifStrArr)
-        if motifStr.endswith(currMotifSuffix):
+        if motifStr.endswith(currStr):
             currOverlapSum += np.exp(currProb)
     lamb = totLength*(np.exp(logscore_indep)/(1+currOverlapSum))
     return lamb
@@ -349,7 +349,7 @@ def computeLogOdds(motif, motifIncidenceLengths, motifIndices, garbageCol, negLL
     n = negLLSubset.shape[0]
     expanded_seq = generateExpandedMotif(motif, motifIndices)
     assert len(expanded_seq) == n
-    likelihood = negLLSubset[range(n), expanded_seq.astype(int).tolist()]
+    likelihood = negLLSubset[range(n), expanded_seq.tolist()]
     likelihood = -1*np.sum(likelihood)
 
     # indiv_probs are just the garbage columns

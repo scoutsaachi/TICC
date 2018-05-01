@@ -26,9 +26,9 @@ def runHyperParameterTests(inputName, outputName, clusters, beta, oldAssignments
     motifDict = {}
     for g in gammas:
         for m in motifReqs:
-            motifs = runTest(1, inputName, outputName, clusters,
+            motifs, rankedMotifs = runTest(1, inputName, outputName, clusters,
                              beta, g, m, oldAssignmentsName)
-            motifDict[(g, m)] = motifs
+            motifDict[(g, m)] = (motifs, rankedMotifs)
     print(motifDict)
 
 
@@ -57,7 +57,7 @@ def runTest(mode, inputName, outputName, clusters, beta, gamma, motifReq, oldAss
         fname = "%s_clust%s_beta%s.out" % (outputName, clusters, beta)
     print ("saving to ", fname)
     np.savetxt(fname, cluster_assignment, fmt='%d')
-    return motifs, rankkedMotifs
+    return motifs, rankedMotifs
 
 
 test()
