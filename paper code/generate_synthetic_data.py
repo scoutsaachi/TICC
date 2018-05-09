@@ -3,15 +3,64 @@ from snap import *
 
 ##Parameters to play with
 
-window_size = 5
+def createGarbage(size, clusters):
+	return np.random.choice(clusters, size).tolist()
+
+def createDataset1():
+	num_cluster = 7
+	clustersequence = [7,8,7,9]
+	numSeqs = 10
+	lenGarbage = 10 # number of garbage segments
+	lenSequence = 200 #length of each segment
+	finalSeqs = []
+	notableIndices = []
+	idx = 0
+	for i in range(numSeqs):
+		finalSeqs += createGarbage(lenGarbage, num_cluster) + clustersequence
+		idx += lenGarbage*lenSequence
+		newIdx = idx + len(clustersequence)*lenSequence
+		notableIndices.append((idx, newIdx))
+		idx = newIdx
+	breakpoints = (np.arange(len(finalSeqs)) + 1)*lenSequence
+	return 10, finalSeqs, notableIndices, breakpoints
+
+def createDataset2():
+        num_cluster = 7
+        clustersequence = [7,8,7,9]
+        numSeqs = 50
+        lenGarbage = 5  # number of garbage segments
+        lenSequence = 200 #length of each segment
+        finalSeqs = []
+        notableIndices = []
+        idx = 0
+        for i in range(numSeqs):
+		if i % 10 != 0:
+                	finalSeqs += createGarbage(lenGarbage, num_cluster) + clustersequence
+		else:
+			other_cluster = np.random.randint(7)
+			otherclustersequence = [7,8,other_cluster,9]
+			finalSeqs += createGarbage(lenGarbage, num_cluster) + otherclustersequence
+                idx += lenGarbage*lenSequence
+                newIdx = idx + len(clustersequence)*lenSequence
+                notableIndices.append((idx, newIdx))
+                idx = newIdx
+        breakpoints = (np.arange(len(finalSeqs)) + 1)*lenSequence
+        return 10, finalSeqs, notableIndices, breakpoints
+
+
+
+window_size = 1
 number_of_sensors = 5
 sparsity_inv_matrix = 0.2
 rand_seed = 10
-number_of_clusters = 3
-cluster_ids = [0,1,0]
-break_points = np.array([1,2,3])*200
+#number_of_clusters = 8
+#cluster_ids = [0,1,0]
+#break_points = np.array([1,2,3])*200
 save_inverse_covarainces = True
-out_file_name = "Synthetic Data Matrix rand_seed =[0,1] generated2.csv"
+out_file_name = "out.csv"
+number_of_clusters, cluster_ids, indices, break_points = createDataset2()
+print(cluster_ids)
+print(indices)
 ###########################################################
 
 

@@ -7,7 +7,7 @@ def dataset2():
 	inputName = "synthetic/dataset2/input.csv"
 	outputName = "synthetic/dataset2/old_assign.out"
 	number_of_clusters = 10
-	runNonMotifTICC(inputName, outputName, number_of_clusters, beta, outputName)
+	#runNonMotifTICC(inputName, outputName, number_of_clusters, beta, outputName)
 	runHyperParameterTests(inputName, "synthetic/dataset2/new_assign", number_of_clusters,beta,outputName)
 
 def dataset1():
@@ -17,22 +17,10 @@ def dataset1():
 	number_of_clusters = 10
 	#runNonMotifTICC(inputName, outputName, number_of_clusters, beta, outputName)
 	runHyperParameterTests(inputName, "synthetic/dataset1/new_assign", number_of_clusters,beta,outputName)
-'''
-def test():
-	mode = int(sys.argv[1])
-	clusters = int(sys.argv[2])
-	beta = float(sys.argv[3])
-	inputName = sys.argv[4]
-	old_assignmentsName = sys.argv[5]
-	outputName = sys.argv[6]
-	if mode == 1:
-		runHyperParameterTests(inputName, outputName, clusters, beta, old_assignmentsName)
-	else:
-		runNonMotifTICC(inputName, outputName, clusters, beta, old_assignmentsName)
-'''
+
 def runHyperParameterTests(inputName, outputName, clusters, beta, oldAssignmentsName):
-	gammas = [0.8, 0.9, 0.99]
-	motifReqs = [3]
+	gammas = [0.7, 0.8, 0.9, 0.99]
+	motifReqs = [2]
 	motifDict = {}
 	for g in gammas:
 		for m in motifReqs:
@@ -53,7 +41,7 @@ def runTest(mode, inputName, outputName, clusters, beta, gamma, motifReq, oldAss
 		old_assign = np.loadtxt(oldAssignmentsName, dtype=int)
 		usemotif=True
 
-	(cluster_assignment, cluster_MRFs, motifs) = solver.PerformFullTICC(initialClusteredPoints=old_assign,useMotif=usemotif)
+	(cluster_assignment, cluster_MRFs, motifs, motifRanked) = solver.PerformFullTICC(initialClusteredPoints=old_assign,useMotif=usemotif)
 	solver.CleanUp()
 	print(motifs)
 	if mode  == 1:
@@ -62,6 +50,6 @@ def runTest(mode, inputName, outputName, clusters, beta, gamma, motifReq, oldAss
 		fname = outputName
 	print ("saving to ", fname)
 	np.savetxt(fname, cluster_assignment, fmt='%d')
-	return motifs
+	return motifs, motifRanked
 
 dataset2()

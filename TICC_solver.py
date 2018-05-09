@@ -7,7 +7,7 @@ from scipy import stats
 from sklearn import mixture
 
 from multiprocessing import Pool
-
+from collections import deque
 from src.TICC_helper import *
 from src.motif.find_motif import PerformAssignment
 from src.admm_solver import ADMMSolver
@@ -77,7 +77,7 @@ class TICCSolver:
         return clustered_points
 
     def solveWithInitialization(self, clustered_points, useMotif):
-        motifs = old_motifs = None
+        motifs = None
         rankedMotifs=None
         assert self.maxIters > 0  # must have at least one iteration
         num_stacked = self.window_size
@@ -91,7 +91,8 @@ class TICCSolver:
         train_cluster_inverse = {}
         computed_cov = {}
         cluster_mean_stacked_info = {}
-        old_clustered_points = None  # points from last iteration
+        clustered_point_historyN = 3
+        clustered_point_history = deque([None for i in range(clustered_point_historyN)])
         empirical_covariances = {}
 
         # PERFORM TRAINING ITERATIONS
@@ -127,13 +128,15 @@ class TICCSolver:
             for cluster in range(K):
                 logging.debug(
                     "length of cluster %s --> %s" % (cluster, len(clust_indices[cluster])))
-
-            if np.array_equal(old_clustered_points, before_zero) and old_motifs == motifs:
+            stop_here = False
+            if before_zero in clustered_point_history:
                 logging.info("CONVERGED!!!! BREAKING EARLY!!!")
-                break
-            old_clustered_points = before_zero
-            old_motifs = motifs
-        return (clustered_points, train_cluster_inverse, motifs, rankedMotifs)
+                stop_here = True
+            clustered_point_history.popleft()
+            clustered_point_history.append(before_zero)
+            if stop_here: break
+        
+        return (clustered_point_history[-1], train_cluster_inverse, motifs, rankedMotifs)
 
     def getLikelihood(self, computed_cov, cluster_mean_stacked_info, clustered_points):
         '''

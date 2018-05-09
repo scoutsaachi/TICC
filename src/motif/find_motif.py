@@ -5,6 +5,8 @@ import numpy as np
 from bitarray import bitarray
 from collections import Counter, namedtuple,defaultdict
 from scipy.stats import poisson,binom
+from sortedcontainers import SortedListWithKey
+
 # https://code.google.com/archive/p/py-rstr-max/
 
 def PerformAssignment(sequence, negLLMatrix, solver):
@@ -44,7 +46,6 @@ def PerformAssignment(sequence, negLLMatrix, solver):
         instanceList += worker_result
     instanceList.sort()    
     final_assignment, motif_result = greedy_assignv2(sequence, instanceList, solver.motifReq)
-    print (motif_result)
     if np.all(final_assignment == sequence):
         print ("assignment not changed")
     return final_assignment, motif_result, computeFinalMotifScores(final_assignment, motif_result)
@@ -67,7 +68,7 @@ def motifWorker(totLength, motifTuple, beta, gamma, negLLMatrix, garbageCol, bet
     _, motifInstances = motif_hmm.SolveAndReturn()  # (changepoints)
     score = MotifScore(totLength, logFreqProbs, m, len(motifInstances))
     for motifIndices, neg_likelihood in motifInstances:
-        logodds = computeLogOdds(m, motifIncidenceLengths, motifIndices, garbageCol, negLLMatrix)
+        logodds = computeLogOdds(m, motifIncidenceLengths, motifIndices, garbageCol+np.log(gamma), negLLMatrix)
         motifScore = logodds + score 
         instanceList.append((-1*motifScore, tuple(m), motifIndices))
     return instanceList
@@ -160,12 +161,12 @@ def greedy_assignv2(sequence, instanceList, motifReq):
     for m,instanceIdxSet in motifResult.items():
         if len(instanceIdxSet) < motifReq:
             continue
-        gaps = []
+        gaps = set()
         for idx in instanceIdxSet:
             assert isLocked(idx)
             _, _, indices = instanceList[idx]
             gap = (indices[0], indices[-1])
-            gaps.append(gap)
+            gaps.add(gap)
         finalResult[m] = gaps
     return result, finalResult
 
@@ -184,21 +185,40 @@ def generateExpandedMotif(motif, motifIndices):
         result[start:end] = val
     return result
 
-def checkPeriodic(S):
-    S = "".join(map(str, S))
-    doubleS = S + S
-    curtailedDoubleS = doubleS[1:-1]
-    return S in curtailedDoubleS
 
-def replaceRedundancy(motifStr, candidateStrings):
-    '''candidateList sorted from smallest to biggest'''
-    ''' motifStr as string that is comma sep'''
-    m = motifStr
-    for i,cs in reversed(list(enumerate(candidateStrings))):
-        replacementStr = str(-1*(i+1))+"."
-        m = m.replace(cs, replacementStr)
-    return m
+def replaceModules(in_motif, candidateModules):
+    motif = in_motif[:]
+    for m, module, _ in candidateModules:
+        replaceRedundancy(motif, m, module)
+    return motif
 
+def replaceRedundancy(motif, submotif, module):
+    ''' given a motif, a sub-pattern, and the subpattern module, replace 
+        all instances of submotif with module. edits in place'''
+    matches = []
+    i = 0
+    while i < len(motif):
+        if motif[i] == submotif[0] and motif[i:i+len(submotif)] == submotif:
+            matches.append(i)
+            i=i+len(submotif)
+        else:
+            i += 1
+    matches.reverse()
+    for i in matches:
+        motif[i:i+len(submotif)] = [module]
+
+def addToLogFreqProbs(logFreqProbs, motif, module, instances, totLength, candidates):
+    log_indep = getMotifIndepProb(motif, logFreqProbs)
+    log_empirical = np.log(instances/totLength)
+    logprob = max(log_indep, log_empirical)
+    logFreqProbs[module] = logprob
+    candidates.add((motif, module, logprob))
+
+def getMotifStats(motifTuple, collapsed):
+    length, incidences = motifTuple
+    numIncidences = filterOverlapping(incidences, length)
+    motif = collapsed[incidences[0]:incidences[0]+length]
+    return motif, numIncidences
 
 def find_motifs(sequence, maxMotifs=None):
     '''
@@ -210,33 +230,46 @@ def find_motifs(sequence, maxMotifs=None):
     '''
     orig_indices, collapsed = collapse(sequence)
     logFreqProbs = getFrequencyProbs(collapsed)
-    print(logFreqProbs)
     totLength = len(collapsed)
     motif_results = GetMotifs(collapsed)  # [(motif length), [<start_indices>]]
     motif_results.sort(key=lambda mr: mr[0]) # sort so that the shortest is first
-    print(totLength)
-    candidateStrings = [] # list of candidate motifs in string form sep by commas
-    candidates = [] # motifs, incidences
-    alpha = 0.01/len(motif_results)
+    
+    # split the results into 2 motif and >2 motif results
+    splitPoint = -1
+    for i in range(len(motif_results)):
+        if motif_results[i][0] > 2:
+            splitPoint = i
+            break
+    if splitPoint == -1: return []
+    twoMotifs = motif_results[:splitPoint] # motif results with just 2 stages
+    motif_results = motif_results[splitPoint:] # motif results with >2 stages
 
-    for length, incidences in motif_results:
-        numIncidences = filterOverlapping(incidences, length)
+    moduleCount = -1
+    # candidateModules contains (motif, moduleID, probability)
+    candidateModules = SortedListWithKey(key=lambda r: (-1*len(r[0]), -1*r[2]))
+    for motifTuple in twoMotifs: # add all two-gram to null hypothesis
+        motif, numIncidences = getMotifStats(motifTuple, collapsed)
+        addToLogFreqProbs(logFreqProbs, motif, moduleCount, numIncidences, totLength, candidateModules)
+        moduleCount -= 1
+    candidates = [] # motifs, incidences
+    alpha = 0.001/len(motif_results)
+
+    for motifTuple in motif_results: #length, incidences
+        incidences = motifTuple[1]
+        motif, numIncidences = getMotifStats(motifTuple, collapsed)
         if numIncidences == 1: continue
         # dynamic candidate replacement
-        motif = collapsed[incidences[0]:incidences[0]+length]
-        motifStr = ",".join([str(m) for m in motif])
-        motifStrReplaced = replaceRedundancy(motifStr, candidateStrings)
-        motifReconstructed = [int(float(m)) for m in motifStrReplaced.split(",")]
-        log_prob_ind = getMotifIndepProb(motifReconstructed,  logFreqProbs)
+        motifReplaced = replaceModules(motif, candidateModules)
+        log_prob_ind = getMotifIndepProb(motifReplaced,  logFreqProbs)
         # calculate pscore
-        pscore = 1-binom.cdf(numIncidences, totLength, np.exp(log_prob_ind))
+        pscore = 1-poisson.cdf(numIncidences, totLength*np.exp(log_prob_ind))
+        #pscore = 1-binom.cdf(numIncidences, totLength, np.exp(log_prob_ind))
         if pscore < alpha: # significant
-            candidateStrings.append(motifStr)
-            idx = -1*len(candidateStrings)
-            logFreqProbs[idx] = np.log(float(numIncidences)/totLength) # update probs
+            print(motif, pscore, numIncidences, np.exp(log_prob_ind)*totLength)
             motifIncidenceLengths = inflateMotifLengths(incidences, orig_indices, len(motif))
             candidates.append((motif, motifIncidenceLengths))
-    print(candidateStrings)
+            addToLogFreqProbs(logFreqProbs, motif, moduleCount, numIncidences, totLength, candidateModules)
+            moduleCount -= 1
     return candidates
 
 
@@ -273,7 +306,8 @@ def GetPoissonMotifLambda(totLength, logFreqProbs, motif):
         if motifStr.endswith(currStr):
             currOverlapSum += np.exp(currProb)
     lamb = totLength*(np.exp(logscore_indep)/(1+currOverlapSum))
-    return lamb
+    return np.exp(logscore_indep)*totLength
+    #return lamb
 
 def PoissonMotifScore(totLength, logFreqProbs, motif, numIncidences):
     lamb = GetPoissonMotifLambda(totLength, logFreqProbs, motif)
