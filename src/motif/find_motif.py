@@ -24,22 +24,22 @@ def PerformAssignment(sequence, negLLMatrix, solver):
     result: the new assignment guided by the motifs
     motifs: the motifs found, as a dict of {motif: [(start1,end1), (start2,end2)...]}
     '''
+    _, K = negLLMatrix.shape
     sequence = [i.astype(int) for i in sequence]
-    logFreqProbs = getFrequencyProbs(sequence)
     _, collapsed = collapse(sequence)
     totLength = len(collapsed)
     # find common motifs with scores
-    motifs = find_motifs(sequence, solver.maxMotifs)
+    motifs = find_motifs(sequence)
     nMotifsFound = len(motifs)
     instanceList = []  # list of (score, motif, indices)
-    garbageCol, betaGarbage = getGarbageCol(
-        sequence, negLLMatrix, solver.beta, solver.gamma)
+    garbageCol, betaGarbage = getGarbageCol(sequence, negLLMatrix, solver.beta, solver.gamma)
     futures = [None]*nMotifsFound
+    bigramProbs = computeBigramProbs(collapsed, K)
     for i, motifTuple in enumerate(motifs):
         # motifTuple is motif lengths, motif
         futures[i] = solver.pool.apply_async(motifWorker,
             (totLength, motifTuple, solver.beta, solver.gamma, negLLMatrix,
-            garbageCol, betaGarbage, logFreqProbs))
+            garbageCol, betaGarbage, bigramProbs))
     instanceList = []
     for i in range(nMotifsFound):
         worker_result = futures[i].get()
@@ -48,25 +48,26 @@ def PerformAssignment(sequence, negLLMatrix, solver):
     final_assignment, motif_result = greedy_assignv2(sequence, instanceList, solver.motifReq)
     if np.all(final_assignment == sequence):
         print ("assignment not changed")
-    return final_assignment, motif_result, computeFinalMotifScores(final_assignment, motif_result)
+    return final_assignment, motif_result, computeFinalMotifScores(final_assignment, motif_result, K)
 
-def computeFinalMotifScores(final_assignment, motif_result):
-    logFreqProbs = getFrequencyProbs(final_assignment)
+def computeFinalMotifScores(final_assignment, motif_result, numClusters):
+    _,collapsed = collapse(final_assignment)
+    bigramProbs = computeBigramProbs(collapsed, numClusters)
     motif_scores = []
     for m, incidences in motif_result.items():
-        score = MotifScore(len(final_assignment), logFreqProbs, m, len(incidences))
+        score = MotifScore(len(collapsed), bigramProbs, m, len(incidences))
         motif_scores.append((m, score))
     motif_scores.sort(reverse=True, key=lambda m:m[1])
     return motif_scores
     
 
-def motifWorker(totLength, motifTuple, beta, gamma, negLLMatrix, garbageCol, betaGarbage, logFreqProbs):
+def motifWorker(totLength, motifTuple, beta, gamma, negLLMatrix, garbageCol, betaGarbage, bigramProbs):
     m, motifIncidenceLengths = motifTuple
     instanceList = []
     motif_hmm = MotifHMM(negLLMatrix, m, beta, gamma,
                          motifIncidenceLengths, garbageCol, betaGarbage)
     _, motifInstances = motif_hmm.SolveAndReturn()  # (changepoints)
-    score = MotifScore(totLength, logFreqProbs, m, len(motifInstances))
+    score = MotifScore(totLength, bigramProbs, m, len(motifInstances))
     for motifIndices, neg_likelihood in motifInstances:
         logodds = computeLogOdds(m, motifIncidenceLengths, motifIndices, garbageCol+np.log(gamma), negLLMatrix)
         motifScore = logodds + score 
@@ -220,7 +221,7 @@ def getMotifStats(motifTuple, collapsed):
     motif = collapsed[incidences[0]:incidences[0]+length]
     return motif, numIncidences
 
-def find_motifs(sequence, maxMotifs=None):
+def find_motifs(sequence):
     '''
     Get the maximal motifs in the sequence along with their scores
 
@@ -286,45 +287,50 @@ def filterOverlapping(incidences, length):
             count += 1
     return count
 
-def GetPoissonMotifLambda(totLength, logFreqProbs, motif):
-    ''' return lambda for poisson estimating non-overlapping
-        motif is an array
-    '''
-    logscore_indep = getMotifIndepProb(motif, logFreqProbs)
-    currOverlapSum = 0
-    currProb = logscore_indep
-    motifStrArr = [str(m) for m in motif]
-    motifStr = ",".join(motifStrArr)
-    currMotifSuffix = motifStrArr[:]
-    for i in range(len(motif)-1):
-        deletedLetter = int(currMotifSuffix[-1])
-        currMotifSuffix = currMotifSuffix[:-1]
-        currProb += logFreqProbs[deletedLetter]
-        # check if overlap is true
-        currStr = ",".join(currMotifSuffix)
-        motifStr = ",".join(motifStrArr)
-        if motifStr.endswith(currStr):
-            currOverlapSum += np.exp(currProb)
-    lamb = totLength*(np.exp(logscore_indep)/(1+currOverlapSum))
-    return np.exp(logscore_indep)*totLength
-    #return lamb
+def computeBigramProbs(collapsed, numClusters):
+    counts = np.zeros((numClusters, numClusters)) # A[i,j] is count of (i,j)
+    prev  = None
+    for val in collapsed:
+        if prev is not None:
+            counts[prev, val] += 1
+        prev = val
+    countSums = np.log(np.sum(counts, axis=1).reshape((numClusters,1)) + numClusters)
+    counts = np.log(counts + 1)
+    result = counts - countSums
+    unigramSmoothed = getFrequencyProbs(collapsed, K=numClusters, smoothening=True)
+    for i in range(numClusters):
+        result[i,i] = unigramSmoothed[i]
+    return result
 
-def PoissonMotifScore(totLength, logFreqProbs, motif, numIncidences):
-    lamb = GetPoissonMotifLambda(totLength, logFreqProbs, motif)
-    prob = 1 - poisson.cdf(numIncidences, lamb)
-    return prob
+def computeMotifBigramProbs(bigramProbs, motif):
+    ''' return log bigram prob'''
+    prev = None
+    probs = 0
+    for val in motif:
+        if prev is None:
+            probs += bigramProbs[val, val]
+        else:
+            probs += bigramProbs[prev, val]
+        prev = val
+    return probs
+    
 
-
-def MotifScore(totLength, logFreqProbs, motif, numIncidences):
+def MotifScore(totLength, bigramProbs, motif, numIncidences):
     '''
         perform motif score: G-test
-        return a score. 
+        return a score.
+        TODO: see whether we want a bigram or unigram model 
     '''
-    E = GetPoissonMotifLambda(totLength, logFreqProbs, motif)
-    log_E = np.log(E)
+    #null_probs = computeMotifBigramProbs(bigramProbs, motif)
+    #log_E = np.log(totLength) + null_probs
     N = numIncidences
-    score = 2*N*(np.log(N)-log_E)
-    return score
+    #score = 2*N*(np.log(N)-log_E)
+    altProb = 0
+    for m in motif:
+        altProb += bigramProbs[m,m]
+    log_E = np.log(totLength) + altProb
+    altScore = 2*N*(np.log(N)-log_E)
+    return altScore
 
 
 def collapse(sequence):
@@ -358,13 +364,22 @@ def collapse(sequence):
     return start_end_indices, collapsedString
 
 
-def getFrequencyProbs(arr):
+def getFrequencyProbs(arr, K=None, smoothening=False):
     '''
     Return the log probabilities of each state from it's appearance in the array
     '''
     freqs = Counter(arr)
     tot = len(arr)
     result = {}
+    if smoothening:
+        assert K is not None
+        for c in range(K):
+            num = 1.0
+            if c in freqs:
+                num += freqs[c]
+            result[c] = np.log(num/(tot + K))
+        return result
+    # no smoothening
     for cluster, num in freqs.items():
         result[cluster] = np.log(float(num)/tot)
     return result
@@ -385,20 +400,8 @@ def computeLogOdds(motif, motifIncidenceLengths, motifIndices, garbageCol, negLL
     assert len(expanded_seq) == n
     likelihood = negLLSubset[range(n), expanded_seq.tolist()]
     likelihood = -1*np.sum(likelihood)
-
-    # indiv_probs are just the garbage columns
     garbage_likelihoods = garbageCol[motifIndices[0]:motifIndices[-1]+1]
     indiv_prob = -1*np.sum(garbage_likelihoods)
-    '''
-    #distance probs:
-    distanceProbs = 0
-    means, stdevs = motifIncidenceLengths
-    for indexPair in motifIndices:
-        dist = indexPair[1]-indexPair[0]
-        prob = scipy.stats.norm.pdf(dist, means, x)
-        distanceProbs += np.log(prob)
-    distanceProbs = distanceProbs/n
-    '''
     return 2*(likelihood - indiv_prob)
 
 def inflateMotifLengths(collapsedStartIndices, orig_indices, length):
