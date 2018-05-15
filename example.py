@@ -21,8 +21,8 @@ def test():
 
 
 def runHyperParameterTests(inputName, outputName, clusters, beta, oldAssignmentsName):
-    gammas = [0.6, 0.7, 0.99]
-    motifReqs = [2]
+    gammas = [0.6, 0.7, 0.8, 0.9, 0.99]
+    motifReqs = [3]
     motifDict = {}
     for g in gammas:
         for m in motifReqs:
@@ -39,7 +39,7 @@ def runNonMotifTICC(inputName, outputName, clusters, beta, oldAssignmentsName):
 def runTest(mode, inputName, outputName, clusters, beta, gamma, motifReq, oldAssignmentsName):
     print("TESTING %s %s" % (beta, gamma))
     solver = TICCSolver(window_size=3, number_of_clusters=clusters, lambda_parameter=5e-3, beta=beta, threshold=2e-5,
-                        gamma=gamma, input_file=inputName, num_proc=30, maxMotifs=50, motifReq=motifReq, maxIters=20)
+                        gamma=gamma, input_file=inputName, num_proc=30, maxMotifs=50, motifReq=motifReq, maxIters=50)
     old_assign = None
     usemotif = False
     if mode == 1:
