@@ -52,4 +52,4 @@ def runTest(mode, inputName, outputName, clusters, beta, gamma, motifReq, oldAss
 	np.savetxt(fname, cluster_assignment, fmt='%d')
 	return motifs, motifRanked
 
-dataset2()
+dataset1()
