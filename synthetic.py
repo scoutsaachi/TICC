@@ -13,11 +13,12 @@ import os
 # 	runHyperParameterTests(inputName, "synthetic/dataset2/new_assign", number_of_clusters,beta,outputName)
 
 
-def dataset1(input_name, output_dir):
-    beta = 20
+def dataset(mode, input_name, output_dir):
+    beta = 50
     number_of_clusters = 10
-    outputName = "%s/old/assign.out" % output_dir
-    #outputName = runNonMotifTICC(input_name, output_dir, number_of_clusters, beta, None)
+    if mode == 1:
+        outputName = "%s/old/assign.out" % output_dir
+    else: outputName = runNonMotifTICC(input_name, output_dir, number_of_clusters, beta, None)
     runHyperParameterTests(input_name, output_dir, number_of_clusters, beta, outputName)
 
 def runHyperParameterTests(inputName, outputDir, clusters, beta, oldAssignmentsName):
@@ -47,7 +48,7 @@ def makeDir(dirname):
 def runTest(mode, inputName, outputDir, clusters, beta, gamma, motifReq, oldAssignmentsName):
     print("TESTING %s" % (gamma))
     solver = TICCSolver(window_size=1, number_of_clusters=clusters, lambda_parameter=1e-3, beta=beta, threshold=2e-5,
-                        gamma=gamma, input_file=inputName, num_proc=30, maxMotifs=50, motifReq=motifReq, maxIters=20)
+                        gamma=gamma, input_file=inputName, num_proc=30, maxMotifs=50, motifReq=motifReq, maxIters=30)
     old_assign = None
     usemotif = False
     if mode == 1:
@@ -69,8 +70,8 @@ def runTest(mode, inputName, outputDir, clusters, beta, gamma, motifReq, oldAssi
     return outputName
 
 if __name__ == "__main__":
+    # mode of 1 to skip old assign
     assert len(sys.argv) == 4
     mode, input_fname, output_fdir = int(sys.argv[1]), sys.argv[2], sys.argv[3]
-    if mode == 1:
-        dataset1(input_fname, output_fdir)
+    dataset(mode, input_fname, output_fdir)
 

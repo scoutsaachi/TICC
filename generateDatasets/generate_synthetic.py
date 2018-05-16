@@ -8,22 +8,13 @@ SPARSITY = 0.2
 RAND_SEED = 10
 
 
-def createGarbage(numGarbageSegments, lenSegment, clusters):
-    assignment = []
-    correctAssignment = []
-    clusterAssignments = np.random.choice(clusters, numGarbageSegments)
-    for cluster in clusterAssignments:
-        correctAssignment += np.full(lenSegment, cluster, dtype=int).tolist()
-        assignment.append((cluster, lenSegment))
-    return assignment, correctAssignment
-
 
 def createSegments(assigns, lenSegment):
     assignment = []
     correctAssignment = []
-    for cluster in assigns:
+    for cluster, othercluster in assigns:
         correctAssignment += np.full(lenSegment, cluster, dtype=int).tolist()
-        assignment.append((cluster, lenSegment))
+        assignment.append(((cluster, othercluster), lenSegment))
     return assignment, correctAssignment
 
 
@@ -41,20 +32,20 @@ def createDataset2(outputFilename, outputCorrectName, noiseFraction):
     assigns = []
     for _ in range(numSeqs):
         garbage = np.random.choice(garbage_clusters, numGarbage).tolist()
-        garbage = zip(garbage, [None for _ in len(garbage)])
+        garbage = zip(garbage, [None for _ in range(len(garbage))])
         noneVals = None
         if np.random.random < eps:
             # pick a random one to edit
-            noneVals = [None for _ in len(clustersequence)]
+            noneVals = [None for _ in range(len(clustersequence))]
             chosenIdx = np.random.choice(len(clustersequence))
             chosenCluster = np.random.choice(garbage_clusters)
             noneVals[chosenIdx] = chosenCluster
         else:  # don't add noise
-            noneVals = [None for _ in len(clustersequence)]
+            noneVals = [None for _ in range(len(clustersequence))]
         assigns += list(zip(clustersequence, noneVals))
 
-    alts = [None for _ in len(assigns)]
-    assigns = list(zip(assigns, alts))
+    #alts = [None for _ in range(len(assigns))]
+    #assigns = list(zip(assigns, alts))
 
     assignment, correctAssignment = createSegments(assigns, lenSegment)
     generate_data(num_clusters, NUM_SENSORS, WINDOW_SIZE,
@@ -78,7 +69,7 @@ def createDataset1(outputFilename, outputCorrectName):
         assigns += np.random.choice(garbage_clusters, numGarbage).tolist()
         assigns += clustersequence
 
-    alts = [None for _ in len(assigns)]
+    alts = [None for _ in range(len(assigns))]
     assigns = list(zip(assigns, alts))
 
     assignment, correctAssignment = createSegments(assigns, lenSegment)

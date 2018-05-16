@@ -171,11 +171,15 @@ class TICCSolver:
                     LLE_all_points_clusters[point, cluster] = lle
         # normalize
         ll = -1*LLE_all_points_clusters
+        '''
         normalizer = np.reshape(np.max(ll, axis=1), (ll.shape[0], 1))
-        ll = ll - normalizer 
+        ll = ll - normalizer
+        ''' 
         ll = np.exp(ll)
+        '''
         sums = np.reshape(np.sum(ll, axis=1),(ll.shape[0], 1))
         ll = ll/sums
+        '''
         ll[ll<1e-320]=1e-320
         assert np.all(ll>0)
         ll = -1*np.log(ll)
