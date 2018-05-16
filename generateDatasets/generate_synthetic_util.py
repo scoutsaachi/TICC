@@ -53,11 +53,10 @@ def generate_inverse(rand_seed, n, sparsity, w):
             inv_matrix[i*n:(i+1)*n, j*n:(j+1)*n] = block_result
 
     # Make the matrix positive definite
-    lambda_min = min(np.linalg.eig(inv_matrix))
+    lambda_min = np.min(np.linalg.eig(inv_matrix)[0])
 
     inv_matrix = inv_matrix + (0.1 + abs(lambda_min)) * np.identity(N)
     eigs, _ = np.linalg.eig(inv_matrix)
-    print "Modified Eigenvalues are:", np.sort(eigs)
     return inv_matrix
 
 def generate_data(K, n, w, sparsity, assignments, out_file_name, rand_seed):
@@ -87,19 +86,19 @@ def generate_data(K, n, w, sparsity, assignments, out_file_name, rand_seed):
             np.savetxt(fn, cluster_covs[c], delimiter=",", fmt='%1.6f')
 
     # Data matrix
-    T = len(assignments)
+    T = sum([val[1] for val in assignments])
     Data = np.zeros((T, n))
     dataCounter = 0
     for cluster, numPoints in assignments:
-        # construct the first point
-        if dataCounter == 0:
-            cov_matrix = cluster_covs[cluster][0:n, 0:n]
-            new_mean = cluster_mean_stacked[n * (w-1):N]
-            new_row = np.random.multivariate_normal(
-                new_mean.reshape(n), cov_matrix)
-            Data[0, :] = new_row
-            dataCounter += 1
         for i in range(numPoints):
+            if dataCounter == 0:
+                cov_matrix = cluster_covs[cluster][0:n, 0:n]
+                new_mean = cluster_mean_stacked[n * (w-1):N]
+                new_row = np.random.multivariate_normal(
+                new_mean.reshape(n), cov_matrix)
+                Data[0, :] = new_row
+                dataCounter += 1
+                continue
             breakIndex = dataCounter  # update dataCounter
             dataCounter += 1
             # generate the following points
@@ -108,9 +107,10 @@ def generate_data(K, n, w, sparsity, assignments, out_file_name, rand_seed):
             Sig22 = cov_matrix[(num)*n:(num+1)*n, (num)*n:(num+1)*n]
             Sig11 = cov_matrix[0:(num)*n, 0:(num)*n]
             Sig21 = cov_matrix[(num)*n:(num+1)*n, 0:(num)*n]
-            Sig12 = sig21.T
+            Sig12 = Sig21.T
             # sigma2|1
-            cov_mat_tom = Sig22 - ((Sig21 @ np.linalg.inv(Sig11)) @ Sig12)
+            sig21_invsig11 = np.dot(Sig21, np.linalg.inv(Sig11))
+            cov_mat_tom = Sig22 - np.dot(sig21_invsig11, Sig12)
             a = np.zeros((num*n, 1))
             for idx in range(num):
                 if breakIndex < w:
@@ -118,10 +118,10 @@ def generate_data(K, n, w, sparsity, assignments, out_file_name, rand_seed):
                 else:
                     a[idx*n:(idx+1)*n, 0] = Data[breakIndex -
                                                  w + 1 + idx, :].reshape([n])
-            new_mean = cluster_mean + ((Sig21 @ np.linalg.inv(Sig11)) @ (a - cluster_mean_stacked[0:(num)*n, :]))
+            new_mean = cluster_mean + np.dot(sig21_invsig11, (a - cluster_mean_stacked[0:(num)*n, :]))
             new_row = np.random.multivariate_normal(
                 new_mean.reshape(n), cov_mat_tom)
             Data[breakIndex, :] = new_row
 
-    print "length of generated Data is:", Data.shape[0]
+    print("length of generated Data is:", Data.shape[0])
     np.savetxt(out_file_name, Data, delimiter=",", fmt='%1.4f')
