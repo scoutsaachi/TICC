@@ -115,10 +115,12 @@ class TICCSolver:
             # Update cluster points
             clustered_points = updateClusters(
                 LLE_all_points_clusters, switch_penalty=beta)
+            clustered_points = [i.astype(int) for i in clustered_points]
             if useMotif:
                 clustered_points, motifs, rankedMotifs = PerformAssignment(
                     clustered_points, LLE_all_points_clusters, self)
-                print(motifs, rankedMotifs)
+                for m, score in rankedMotifs:
+                    print("%s ---> %s, %s" % (m, len(motifs[m]), score))
             before_zero = clustered_points.copy()
             self.assignToZeroClusters(
                 clustered_points, old_computed_cov, computed_cov, cluster_mean_stacked_info)

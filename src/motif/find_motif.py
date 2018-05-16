@@ -25,11 +25,11 @@ def PerformAssignment(sequence, negLLMatrix, solver):
     motifs: the motifs found, as a dict of {motif: [(start1,end1), (start2,end2)...]}
     '''
     _, K = negLLMatrix.shape
-    sequence = [i.astype(int) for i in sequence]
+    #sequence = [i.astype(int) for i in sequence]
     _, collapsed = collapse(sequence)
     totLength = len(collapsed)
     # find common motifs with scores
-    motifs = find_motifs(sequence)
+    motifs = find_motifs(sequence, solver.motifReq)
     nMotifsFound = len(motifs)
     instanceList = []  # list of (score, motif, indices)
     garbageCol, betaGarbage = getGarbageCol(sequence, negLLMatrix, solver.beta, solver.gamma)
@@ -221,7 +221,7 @@ def getMotifStats(motifTuple, collapsed):
     motif = collapsed[incidences[0]:incidences[0]+length]
     return motif, numIncidences
 
-def find_motifs(sequence):
+def find_motifs(sequence, motifReqs):
     '''
     Get the maximal motifs in the sequence along with their scores
 
@@ -258,7 +258,7 @@ def find_motifs(sequence):
     for motifTuple in motif_results: #length, incidences
         incidences = motifTuple[1]
         motif, numIncidences = getMotifStats(motifTuple, collapsed)
-        if numIncidences == 1: continue
+        if numIncidences < motifReqs: continue
         # dynamic candidate replacement
         motifReplaced = replaceModules(motif, candidateModules)
         log_prob_ind = getMotifIndepProb(motifReplaced,  logFreqProbs)
@@ -266,7 +266,7 @@ def find_motifs(sequence):
         pscore = 1-poisson.cdf(numIncidences, totLength*np.exp(log_prob_ind))
         #pscore = 1-binom.cdf(numIncidences, totLength, np.exp(log_prob_ind))
         if pscore < alpha: # significant
-            print(motif, pscore, numIncidences, np.exp(log_prob_ind)*totLength)
+            print(motif, pscore, numIncidences, np.exp(log_prob_ind)*totLength,  np.exp(log_prob_ind), totLength)
             motifIncidenceLengths = inflateMotifLengths(incidences, orig_indices, len(motif))
             candidates.append((motif, motifIncidenceLengths))
             addToLogFreqProbs(logFreqProbs, motif, moduleCount, numIncidences, totLength, candidateModules)

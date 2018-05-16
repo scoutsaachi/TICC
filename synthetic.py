@@ -14,13 +14,14 @@ import os
 
 
 def dataset1(input_name, output_dir):
-    beta = 70
+    beta = 20
     number_of_clusters = 10
-    outputName = runNonMotifTICC(input_name, output_dir, number_of_clusters, beta, None)
+    outputName = "%s/old/assign.out" % output_dir
+    #outputName = runNonMotifTICC(input_name, output_dir, number_of_clusters, beta, None)
     runHyperParameterTests(input_name, output_dir, number_of_clusters, beta, outputName)
 
 def runHyperParameterTests(inputName, outputDir, clusters, beta, oldAssignmentsName):
-    gammas = [0.7, 0.8, 0.9, 0.99]
+    gammas = [0.8]
     motifReqs = 5
     for g in gammas:
         gammaDir = "%s/%s/" % (outputDir, g)
@@ -68,7 +69,7 @@ def runTest(mode, inputName, outputDir, clusters, beta, gamma, motifReq, oldAssi
     return outputName
 
 if __name__ == "__main__":
-    assert len(sys.argv) == 3
+    assert len(sys.argv) == 4
     mode, input_fname, output_fdir = int(sys.argv[1]), sys.argv[2], sys.argv[3]
     if mode == 1:
         dataset1(input_fname, output_fdir)
