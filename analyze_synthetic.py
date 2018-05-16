@@ -4,12 +4,12 @@ import heapq
 import numpy as np
 from sklearn.metrics import f1_score, confusion_matrix
 import matplotlib.pyplot as plt
-segLength = 200
 from matplotlib import rcParams
 rcParams.update({'figure.autolayout': True})
 
+FIGURE_COUNT = 1
 
-def plot_confusion_matrix(cm, classes,output_name,
+def plot_confusion_matrix(cm, classes, output_name,
                           normalize=False,
                           title='Confusion matrix',
                           cmap=plt.cm.Blues,):
@@ -23,7 +23,7 @@ def plot_confusion_matrix(cm, classes,output_name,
     else:
         print('Confusion matrix, without normalization')
 
-    print(cm)
+    # print(cm)
 
     plt.imshow(cm, interpolation='nearest', cmap=cmap)
     plt.title(title)
@@ -35,23 +35,40 @@ def plot_confusion_matrix(cm, classes,output_name,
     fmt = '.2f' if normalize else 'd'
     thresh = cm.max() / 2.
     for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
-        plt.text(j, i, format(cm[i, j], fmt), fontsize=16,
+        plt.text(j, i, format(cm[i, j], fmt), fontsize=10,
                  horizontalalignment="center",
                  color="white" if cm[i, j] > thresh else "black")
 
     plt.tight_layout()
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
-    plt.show()
+    # plt.show()
+
 
 def performMapping(arr, perm):
     return [perm[i] for i in arr]
+
+def plotTable(text):
+    # global FIGURE_COUNT
+    # plt.figure(FIGURE_COUNT)
+    # FIGURE_COUNT += 1
+    fig, ax = plt.subplots()
+    # Hide axes
+    ax.xaxis.set_visible(False) 
+    ax.yaxis.set_visible(False)
+
+    # Table from Ed Smith answer
+    collabel=list(range(10))
+    rowlabel = list(range(10))
+    ax.table(cellText=text,colLabels=collabel,loc='center', rowLabels=rowlabel)
+    plt.show()
 
 def getAssigns(fname):
     with open(fname, 'r') as instream:
         lines = instream.readlines()
         assigns = [int(val.strip()) for val in lines]
     return assigns
+
 
 def getMappingDists(correctAssigns, testAssigns):
     T = len(correctAssigns)
@@ -63,6 +80,7 @@ def getMappingDists(correctAssigns, testAssigns):
         results[correct][test] += 1.0
     x = []
     indexes = [i for i in range(K)]
+    plotTable(results)
     for i in range(K):
         final_result = results[i]
         final_result *= -1
@@ -70,8 +88,8 @@ def getMappingDists(correctAssigns, testAssigns):
         final_result = final_result.tolist()
         indices_result = list(zip(final_result, indexes[:]))
         indices_result.sort()
-        x.append((indices_result,i))
-        # resultStr = ["%s:%.2f" % (j, results[i][j]) for j in range(K)]
+        x.append((indices_result, i))
+        # resultStr = ["%s:%d" % (j, results[i][j]) for j in range(K)]
         # print("%s: %s" % (i, resultStr))
     heapq.heapify(x)
     taken = [False for _ in range(K)]
@@ -87,7 +105,9 @@ def getMappingDists(correctAssigns, testAssigns):
         else:
             mapping[idx] = best_index
             taken[best_index] = True
+    # print(mapping)
     return mapping
+
 
 def getValidMappings(correctFname, assignFname):
     correctAssigns = getAssigns(correctFname)
@@ -95,18 +115,24 @@ def getValidMappings(correctFname, assignFname):
     mapping = getMappingDists(correctAssigns, testAssigns)
     mapped_correct = performMapping(correctAssigns, mapping)
     cared_about_values = mapping[6:]
-    score = f1_score(mapped_correct, testAssigns, average='macro', labels=cared_about_values)
+    score = f1_score(mapped_correct, testAssigns,
+                     average='macro', labels=cared_about_values)
     score2 = f1_score(mapped_correct, testAssigns, average='macro')
-    # cf = confusion_matrix(mapped_correct, testAssigns)
-    # plot_confusion_matrix(cf, list(range(10)),"blah", title='Confusion matrix specific', normalize=True)
-    print(score, score2)
-    
+    cf = confusion_matrix(mapped_correct, testAssigns)
+    global FIGURE_COUNT
+    plt.figure(FIGURE_COUNT)
+    FIGURE_COUNT += 1
+    plot_confusion_matrix(cf, list(range(10)),"blah", title='Confusion matrix specific', normalize=True)
+    print("only relevant: %s, all: %s" % (score, score2))
 
 
-getValidMappings("synthetic_testing/raw/correct.out", "synthetic_testing/old/assign.out")
-getValidMappings("synthetic_testing/raw/correct.out", "synthetic_testing/0.8/assign.out")
-
-
+print("old")
+getValidMappings("synthetic_results/synthetic_testing/raw/correct.out",
+                 "synthetic_results/synthetic_testing/old/assign.out")
+print("motif")
+getValidMappings("synthetic_results/synthetic_testing/raw/correct.out",
+                 "synthetic_results/synthetic_testing/0.8/assign.out")
+plt.show()
 
 # def run(ground_truth, input_name, input_map):
 #     caredAboutValues = [7,8,9]
@@ -145,8 +171,8 @@ getValidMappings("synthetic_testing/raw/correct.out", "synthetic_testing/0.8/ass
 #         m_mapped = performMapping(m, mapping)
 #         print "%s & %s & %s\\\\" % (m_mapped, num, rank)
 
-    # plt.savefig(output_name)
-    # plt.clf()
+# plt.savefig(output_name)
+# plt.clf()
 
 # def dataset1():
 #     ground_truth = [1, 2, 4, 6, 5, 0, 5, 1, 6, 2, 7, 8, 7, 9, 0, 5, 1, 3, 6, 6, 4, 3, 6, 3, 7, 8, 7, 9,6, 5, 0, 6, 3, 2, 5, 5, 2, 3, 7, 8, 7, 9, 0, 6, 2, 2, 5, 1, 6, 3, 6, 4, 7, 8, 7, 9, 6, 1, 1, 4, 0, 0, 4, 4, 0, 3, 7, 8, 7, 9, 0, 3, 3, 2, 6, 1, 4, 6, 0, 2, 7, 8, 7, 9, 4, 4, 4, 4, 5, 0, 1, 6, 5, 5, 7, 8, 7, 9, 2, 1, 2, 1, 4, 1, 4, 4, 0, 0, 7, 8, 7, 9, 1,4, 0, 4, 3, 2, 5, 1, 0, 5, 7, 8, 7, 9, 0, 5, 4, 3, 1, 5, 2, 1, 6, 2, 7, 8, 7, 9]
