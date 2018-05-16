@@ -1,9 +1,0 @@
-python2.7 basemapper.py motif_data/concat_5c_500/concat_5c_500b__clust5_beta500.0_gamma0.99_req2.out raw_data/concat/latlongLarge.csv pics/concat_5c_500b/concat_5c_500b__clust5_beta500.0_gamma0.99_req2.png 0.99 2
-python2.7 basemapper.py motif_data/concat_5c_500/concat_5c_500b__clust5_beta500.0_gamma0.99_req3.out raw_data/concat/latlongLarge.csv pics/concat_5c_500b/concat_5c_500b__clust5_beta500.0_gamma0.99_req3.png 0.99 3
-python2.7 basemapper.py motif_data/concat_5c_500/concat_5c_500b__clust5_beta500.0_gamma0.99_req4.out raw_data/concat/latlongLarge.csv pics/concat_5c_500b/concat_5c_500b__clust5_beta500.0_gamma0.99_req4.png 0.99 4
-python2.7 basemapper.py motif_data/concat_5c_500/concat_5c_500b__clust5_beta500.0_gamma0.6_req2.out raw_data/concat/latlongLarge.csv pics/concat_5c_500b/concat_5c_500b__clust5_beta500.0_gamma0.6_req2.png 0.6 2
-python2.7 basemapper.py motif_data/concat_5c_500/concat_5c_500b__clust5_beta500.0_gamma0.6_req3.out raw_data/concat/latlongLarge.csv pics/concat_5c_500b/concat_5c_500b__clust5_beta500.0_gamma0.6_req3.png 0.6 3
-python2.7 basemapper.py motif_data/concat_5c_500/concat_5c_500b__clust5_beta500.0_gamma0.6_req4.out raw_data/concat/latlongLarge.csv pics/concat_5c_500b/concat_5c_500b__clust5_beta500.0_gamma0.6_req4.png 0.6 4
-python2.7 basemapper.py motif_data/concat_5c_500/concat_5c_500b__clust5_beta500.0_gamma0.9_req2.out raw_data/concat/latlongLarge.csv pics/concat_5c_500b/concat_5c_500b__clust5_beta500.0_gamma0.9_req2.png 0.9 2
-python2.7 basemapper.py motif_data/concat_5c_500/concat_5c_500b__clust5_beta500.0_gamma0.9_req3.out raw_data/concat/latlongLarge.csv pics/concat_5c_500b/concat_5c_500b__clust5_beta500.0_gamma0.9_req3.png 0.9 3
-python2.7 basemapper.py motif_data/concat_5c_500/concat_5c_500b__clust5_beta500.0_gamma0.9_req4.out raw_data/concat/latlongLarge.csv pics/concat_5c_500b/concat_5c_500b__clust5_beta500.0_gamma0.9_req4.png 0.9 4
