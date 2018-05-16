@@ -1,4 +1,5 @@
 /**/*.pyc
 /results/**/*.png
 /results/**/*.out
-
+/intermediates
+/venv
