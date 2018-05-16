@@ -3,16 +3,6 @@ from snap import GenRndGnm, PNGraph
 
 SAVE_COVS = False
 
-'''
-block_matrices = {}  # Stores all the block matrices
-w = window_size
-n = number_of_sensors
-sparsity_inv_matrix = sparsity_inv_matrix
-block_matrices = {}  # Stores all the block matrices
-seg_ids = cluster_ids
-'''
-
-
 def genInvCov(size, low=0.3, upper=0.6, portion=0.2):
     ''' Generate off diagonal blocks'''
     portion = portion/2
@@ -42,7 +32,7 @@ def generate_inverse(rand_seed, n, sparsity, w):
     '''
     n: number of sensors
     w: window size
-    sparsity: sparasity penalty (lambda)
+    sparsity: sparsity penalty (lambda)
     '''
     N = n*w
     block_matrices = {}
@@ -70,15 +60,14 @@ def generate_inverse(rand_seed, n, sparsity, w):
     print "Modified Eigenvalues are:", np.sort(eigs)
     return inv_matrix
 
-
-def generate_data(K, n, w, sparsity, assignments):
+def generate_data(K, n, w, sparsity, assignments, out_file_name, rand_seed):
     '''
     K: number of clusters
     n: number of sensors
     w: window size
-    
+    assignments: [(clusterID, numberOfPoints)]
+    out_file_name: outputfile to save assignments
     '''
-    
 
     # GENERATE POINTS
     N = n*w
@@ -89,7 +78,7 @@ def generate_data(K, n, w, sparsity, assignments):
     cluster_invs = {}
     cluster_covs = {}
     for c in range(K):
-        cluster_invs[c] = generate_inverse(c, n, sparsity, w)
+        cluster_invs[c] = generate_inverse(rand_seed, n, sparsity, w)
         cluster_covs[c] = np.linalg.inv(cluster_invs[c])
         if SAVE_COVS:
             fn = "inv_cov_cluster_%s.csv" % (c)
@@ -100,37 +89,39 @@ def generate_data(K, n, w, sparsity, assignments):
     # Data matrix
     T = len(assignments)
     Data = np.zeros((T, n))
-    for counter in range(len(break_points)):
-        break_pt = break_points[counter]
-        cluster = seg_ids[counter]
-        old_break_pt = 0 if counter == 0 else break_points[counter - 1]
+    dataCounter = 0
+    for cluster, numPoints in assignments:
         # construct the first point
-        cov_matrix = cluster_covs[cluster][0:n, 0:n]
-        new_mean = cluster_mean_stacked[n * (w-1):N]
-        new_row = np.random.multivariate_normal(
-            new_mean.reshape(n), cov_matrix)
-        Data[0, :] = new_row
-        for breakIndex in range(old_break_pt+1, break_pt):
+        if dataCounter == 0:
+            cov_matrix = cluster_covs[cluster][0:n, 0:n]
+            new_mean = cluster_mean_stacked[n * (w-1):N]
+            new_row = np.random.multivariate_normal(
+                new_mean.reshape(n), cov_matrix)
+            Data[0, :] = new_row
+            dataCounter += 1
+        for i in range(numPoints):
+            breakIndex = dataCounter  # update dataCounter
+            dataCounter += 1
             # generate the following points
             num = breakIndex if breakIndex < w else w-1
             cov_matrix = cluster_covs[cluster][0:(num+1)*n, 0:(num+1)*n]
             Sig22 = cov_matrix[(num)*n:(num+1)*n, (num)*n:(num+1)*n]
             Sig11 = cov_matrix[0:(num)*n, 0:(num)*n]
             Sig21 = cov_matrix[(num)*n:(num+1)*n, 0:(num)*n]
-            Sig12 = np.transpose(Sig21)
-            cov_mat_tom = Sig22 - \
-                np.dot(np.dot(Sig21, np.linalg.inv(Sig11)),
-                        Sig12)  # sigma2|1
+            Sig12 = sig21.T
+            # sigma2|1
+            cov_mat_tom = Sig22 - ((Sig21 @ np.linalg.inv(Sig11)) @ Sig12)
             a = np.zeros((num*n, 1))
             for idx in range(num):
-                a[idx*n:(idx+1)*n, 0] = Data[idx, :].reshape((n))
-            new_mean = cluster_mean + np.dot(np.dot(Sig21, np.linalg.inv(Sig11)),
-                                                (a - cluster_mean_stacked[0:(num)*n, :]))
+                if breakIndex < w:
+                    a[idx*n:(idx+1)*n, 0] = Data[idx, :].reshape((n))
+                else:
+                    a[idx*n:(idx+1)*n, 0] = Data[breakIndex -
+                                                 w + 1 + idx, :].reshape([n])
+            new_mean = cluster_mean + ((Sig21 @ np.linalg.inv(Sig11)) @ (a - cluster_mean_stacked[0:(num)*n, :]))
             new_row = np.random.multivariate_normal(
                 new_mean.reshape(n), cov_mat_tom)
             Data[breakIndex, :] = new_row
 
     print "length of generated Data is:", Data.shape[0]
-
-    # save the generated matrix
     np.savetxt(out_file_name, Data, delimiter=",", fmt='%1.4f')
