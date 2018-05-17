@@ -127,11 +127,11 @@ def getValidMappings(correctFname, assignFname):
 
 
 print("old")
-getValidMappings("synthetic_results/synthetic_testing/raw/correct.out",
-                 "synthetic_results/synthetic_testing/old/assign.out")
+getValidMappings("synthetic_results/synthetic_testing2/raw/correct.out",
+                 "synthetic_results/synthetic_testing2/old/assign.out")
 print("motif")
-getValidMappings("synthetic_results/synthetic_testing/raw/correct.out",
-                 "synthetic_results/synthetic_testing/0.8/assign.out")
+getValidMappings("synthetic_results/synthetic_testing2/raw/correct.out",
+                 "synthetic_results/synthetic_testing2/0.8/assign.out")
 plt.show()
 
 # def run(ground_truth, input_name, input_map):
