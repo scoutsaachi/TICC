@@ -120,6 +120,7 @@ def generate_data(K, n, w, sparsity, assignments, out_file_name, rand_seed, nois
 
     # Data matrix
     T = sum([val[1] for val in assignments])
+    print(T)
     Data = np.zeros((T, n))
     dataCounter = 0
     for clusterList, numPoints in assignments:
