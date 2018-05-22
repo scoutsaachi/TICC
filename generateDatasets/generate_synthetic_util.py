@@ -29,7 +29,7 @@ def genRandInv(size, low=0.3, upper=0.6, portion=0.2):
     return np.matrix(S)
 
 
-def generate_inverse(rand_seed, n, sparsity, w):
+def generate_inverse(n, sparsity, w):
     '''
     n: number of sensors
     w: window size
@@ -37,7 +37,6 @@ def generate_inverse(rand_seed, n, sparsity, w):
     '''
     N = n*w
     block_matrices = {}
-    np.random.seed(rand_seed)
     # Generate all the blocks
     # create diagonal blocks
     block_matrices[0] = genInvCov(size=n, portion=sparsity)
@@ -90,7 +89,7 @@ def getMeanCov(dataCounter, cluster, cluster_covs, cluster_mean, cluster_mean_st
     return new_mean.reshape(n), cov_mat_tom
 
 
-def generate_data(K, n, w, sparsity, assignments, out_file_name, rand_seed, noiseWeight=1):
+def generate_data(K, n, w, sparsity, assignments, out_file_name, noiseWeight=1):
     '''
     K: number of clusters
     n: number of sensors
@@ -110,7 +109,7 @@ def generate_data(K, n, w, sparsity, assignments, out_file_name, rand_seed, nois
     cluster_invs = {}
     cluster_covs = {}
     for c in range(K):
-        cluster_invs[c] = generate_inverse(rand_seed, n, sparsity, w)
+        cluster_invs[c] = generate_inverse(n, sparsity, w)
         cluster_covs[c] = np.linalg.inv(cluster_invs[c])
         if SAVE_COVS:
             fn = "inv_cov_cluster_%s.csv" % (c)

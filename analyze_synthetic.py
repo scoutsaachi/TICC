@@ -6,11 +6,14 @@ import numpy as np
 from sklearn.metrics import f1_score, confusion_matrix, accuracy_score
 from matplotlib import rcParams
 import matplotlib.pyplot as plt
+from generateDatasets.generate_synthetic import NUM_CLUSTERS, GARBAGE_CLUSTERS, NUM_SEQS, NUM_GARBAGE, LEN_SEGMENT, CLUSTER_SEQUENCE
 rcParams.update({'figure.autolayout': True})
 
 FIGURE_COUNT = 1
 PLOT_CONF = False
 VERBOSE = False
+STARTING_MOTIF = CLUSTER_SEQUENCE[0] # i.e 6
+
 
 def plot_confusion_matrix(cm, classes, output_name,
                           normalize=False,
@@ -61,8 +64,8 @@ def plotTable(text):
     ax.yaxis.set_visible(False)
 
     # Table from Ed Smith answer
-    collabel=list(range(10))
-    rowlabel = list(range(10))
+    collabel=list(range(NUM_CLUSTERS))
+    rowlabel = list(range(NUM_CLUSTERS))
     ax.table(cellText=text,colLabels=collabel,loc='center', rowLabels=rowlabel)
     plt.show()
 
@@ -73,9 +76,9 @@ def getAssigns(fname):
     return assigns
 
 def getMask(assign):
-    lenBlock = 14*25
-    lenGarbage = 10*25
-    numSeqs = 500
+    lenBlock = (NUM_GARBAGE + len(CLUSTER_SEQUENCE))*LEN_SEGMENT
+    lenGarbage = NUM_GARBAGE*LEN_SEGMENT
+    numSeqs = NUM_SEQS
     result = []
     for s in range(numSeqs):
         result += assign[s*lenBlock + lenGarbage :s*lenBlock + lenBlock + 1]
@@ -86,7 +89,7 @@ def getFullMapping(correctAssigns, testAssigns):
     assignCorrectMask = getMask(correctAssigns[:])
     assignTestMask = getMask(testAssigns[:])
     mapping = getMappingDists(assignCorrectMask, assignTestMask)
-    mapping[:6] = [None for _ in range(6)]
+    mapping[:STARTING_MOTIF] = [None for _ in range(STARTING_MOTIF)]
     mapping = getMappingDists(correctAssigns, testAssigns, mapping)
     reverseMapping = [None for _ in range(len(mapping))]
     for i,val in enumerate(mapping):
@@ -96,7 +99,7 @@ def getFullMapping(correctAssigns, testAssigns):
 def getMappingDists(correctAssigns, testAssigns, mapping=None):
     ''' mapping from testAssigns to correctAssigns'''
     T = len(correctAssigns)
-    K = 10
+    K = NUM_CLUSTERS
     results = [np.zeros(K) for i in range(K)]
     for i in range(T):
         correct = correctAssigns[i]
@@ -139,10 +142,12 @@ def getMappingDists(correctAssigns, testAssigns, mapping=None):
 
 
 def getValidMappings(correctFname, assignFname):
-    correctAssigns = getAssigns(correctFname)
+    correctAssignIndices = getAssigns(correctFname)
+    correctAssigns = []
+    for a in correctAssignIndices: correctAssigns += [a for _ in range(LEN_SEGMENT)]
     testAssigns = getAssigns(assignFname)
     testMapped = getFullMapping(correctAssigns, testAssigns)
-    cared_about_values = list(range(6,10))
+    cared_about_values = list(range(STARTING_MOTIF,NUM_CLUSTERS))
     score = f1_score(correctAssigns, testMapped,
                      average='weighted', labels=cared_about_values)
     score2 = f1_score(correctAssigns, testMapped, average='weighted')
@@ -155,18 +160,19 @@ def getValidMappings(correctFname, assignFname):
     if PLOT_CONF:
         plt.figure(FIGURE_COUNT)
         FIGURE_COUNT += 1
-        plot_confusion_matrix(cf, list(range(10)),"blah", title='Confusion matrix specific', normalize=True)
+        plot_confusion_matrix(cf, list(range(NUM_CLUSTERS)),"blah", title='Confusion matrix specific', normalize=True)
     print("---")
     print("only relevant: %s, all: %s, accuracy: %s" % (score, score2, score3))
 
 
 if __name__ == "__main__":
-    assert len(sys.argv) == 3
+    assert len(sys.argv) == 4
     directory = sys.argv[1]
     gamma = sys.argv[2]
-    getValidMappings("%s/raw/correct.out" % directory,
+    correct = sys.argv[3]
+    getValidMappings(correct,
                  "%s/old/assign.out" % directory)
-    getValidMappings("%s/raw/correct.out" % directory,
+    getValidMappings(correct,
                  "%s/%s/assign.out" % (directory, gamma))
 if PLOT_CONF:
     plt.show()

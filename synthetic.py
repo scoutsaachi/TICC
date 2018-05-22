@@ -14,7 +14,7 @@ import os
 
 
 def dataset(mode, input_name, output_dir):
-    beta = 10 # used 50 for dataset 1
+    beta = 25 # used 50 for dataset 1
     number_of_clusters = 10
     if mode == 1:
         outputName = "%s/old/assign.out" % output_dir
@@ -22,18 +22,18 @@ def dataset(mode, input_name, output_dir):
     runHyperParameterTests(input_name, output_dir, number_of_clusters, beta, outputName)
 
 def runHyperParameterTests(inputName, outputDir, clusters, beta, oldAssignmentsName):
-    gammas = [0.8]
-    motifReqs = 5
+    gammas = [0.6, 0.8]
+    motifReqs = 10
     for g in gammas:
         gammaDir = "%s/%s/" % (outputDir, g)
         makeDir(gammaDir)
         runTest(1, inputName, gammaDir, clusters,
-                beta, g, motifReqs, oldAssignmentsName)
+                beta, g, motifReqs, oldAssignmentsName, 10)
 
 def runNonMotifTICC(inputName, outputDir, clusters, beta, oldAssignmentsName):
     oldDir = "%s/old/" % outputDir
     makeDir(oldDir)
-    return runTest(0, inputName, oldDir, clusters, beta, 1, 1, oldAssignmentsName)
+    return runTest(0, inputName, oldDir, clusters, beta, 1, 1, oldAssignmentsName, 20)
 
 def pickleObject(fname, data):
     f = open(fname, "wb")
@@ -45,11 +45,11 @@ def makeDir(dirname):
         os.makedirs(dirname)
 
 
-def runTest(mode, inputName, outputDir, clusters, beta, gamma, motifReq, oldAssignmentsName):
+def runTest(mode, inputName, outputDir, clusters, beta, gamma, motifReq, oldAssignmentsName, maxIters):
     print("TESTING %s" % (gamma))
     #maxIters used to be 30
     solver = TICCSolver(window_size=1, number_of_clusters=clusters, lambda_parameter=1e-3, beta=beta, threshold=2e-5,
-                        gamma=gamma, input_file=inputName, num_proc=30, maxMotifs=50, motifReq=motifReq, maxIters=10)
+                        gamma=gamma, input_file=inputName, num_proc=30, maxMotifs=50, motifReq=motifReq, maxIters=maxIters)
     old_assign = None
     usemotif = False
     if mode == 1:
