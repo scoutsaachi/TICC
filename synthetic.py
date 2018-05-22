@@ -33,7 +33,7 @@ def runHyperParameterTests(inputName, outputDir, clusters, beta, oldAssignmentsN
 def runNonMotifTICC(inputName, outputDir, clusters, beta, oldAssignmentsName):
     oldDir = "%s/old/" % outputDir
     makeDir(oldDir)
-    return runTest(0, inputName, oldDir, clusters, beta, 1, 1, oldAssignmentsName, 20)
+    return runTest(0, inputName, oldDir, clusters, beta, 1, 1, oldAssignmentsName, 15)
 
 def pickleObject(fname, data):
     f = open(fname, "wb")
@@ -49,11 +49,10 @@ def runTest(mode, inputName, outputDir, clusters, beta, gamma, motifReq, oldAssi
     print("TESTING %s" % (gamma))
     #maxIters used to be 30
     solver = TICCSolver(window_size=1, number_of_clusters=clusters, lambda_parameter=1e-3, beta=beta, threshold=2e-5,
-                        gamma=gamma, input_file=inputName, num_proc=30, maxMotifs=50, motifReq=motifReq, maxIters=maxIters)
+                        gamma=gamma, input_file=inputName, num_proc=10, maxMotifs=50, motifReq=motifReq, maxIters=maxIters)
     old_assign = None
     usemotif = False
     if mode == 1:
-        print("using motif")
         old_assign = np.loadtxt(oldAssignmentsName, dtype=int)
         usemotif = True
     (cluster_assignment, cluster_MRFs, motifs, motifRanked) = solver.PerformFullTICC(

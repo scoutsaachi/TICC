@@ -59,7 +59,7 @@ def createDataset(correctFileName, delta, eps, rho, outputFilename):
                     chosenCluster = np.random.choice(CLUSTER_SEQUENCE[0])
                     segment += [(perturbs[p], chosenCluster)]
                 else: segment += [(perturbs[p], None)]
-        print(segment)
+        #print(segment)
         assigns += segment
     assignment, _ = createSegments(assigns, LEN_SEGMENT)
     print(delta)
