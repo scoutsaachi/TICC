@@ -235,6 +235,7 @@ def find_motifs(sequence, motifReqs):
     motif_results = GetMotifs(collapsed)  # [(motif length), [<start_indices>]]
     motif_results.sort(key=lambda mr: mr[0]) # sort so that the shortest is first
     
+    #print([(k,np.exp(v)) for k,v in logFreqProbs.items()]) 
     # split the results into 2 motif and >2 motif results
     splitPoint = -1
     for i in range(len(motif_results)):
@@ -266,7 +267,9 @@ def find_motifs(sequence, motifReqs):
         pscore = 1-poisson.cdf(numIncidences, totLength*np.exp(log_prob_ind))
         #pscore = 1-binom.cdf(numIncidences, totLength, np.exp(log_prob_ind))
         if pscore < alpha: # significant
-            print(motif, pscore, numIncidences, np.exp(log_prob_ind)*totLength,  np.exp(log_prob_ind), totLength)
+            #print("----")
+            #print([(stage, np.exp(logFreqProbs[stage])) for stage in motifReplaced])           
+            print(moduleCount, motif, motifReplaced, pscore, numIncidences, np.exp(log_prob_ind)*totLength,  np.exp(log_prob_ind), totLength)
             motifIncidenceLengths = inflateMotifLengths(incidences, orig_indices, len(motif))
             candidates.append((motif, motifIncidenceLengths))
             addToLogFreqProbs(logFreqProbs, motif, moduleCount, numIncidences, totLength, candidateModules)

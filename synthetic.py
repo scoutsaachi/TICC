@@ -14,7 +14,7 @@ import os
 
 
 def dataset(mode, input_name, output_dir):
-    beta = 50
+    beta = 10 # used 50 for dataset 1
     number_of_clusters = 10
     if mode == 1:
         outputName = "%s/old/assign.out" % output_dir
@@ -47,8 +47,9 @@ def makeDir(dirname):
 
 def runTest(mode, inputName, outputDir, clusters, beta, gamma, motifReq, oldAssignmentsName):
     print("TESTING %s" % (gamma))
+    #maxIters used to be 30
     solver = TICCSolver(window_size=1, number_of_clusters=clusters, lambda_parameter=1e-3, beta=beta, threshold=2e-5,
-                        gamma=gamma, input_file=inputName, num_proc=30, maxMotifs=50, motifReq=motifReq, maxIters=30)
+                        gamma=gamma, input_file=inputName, num_proc=30, maxMotifs=50, motifReq=motifReq, maxIters=10)
     old_assign = None
     usemotif = False
     if mode == 1:
