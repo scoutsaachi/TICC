@@ -1,6 +1,7 @@
 from generate_synthetic_util import generate_data
 import numpy as np
 import sys
+from constants import NUM_CLUSTERS, GARBAGE_CLUSTERS, CLUSTER_SEQUENCE, NUM_SEQS, NUM_GARBAGE, LEN_SEGMENT
 
 WINDOW_SIZE = 1
 NUM_SENSORS = 5
@@ -8,12 +9,14 @@ SPARSITY = 0.2
 RAND_SEED = 20
 np.random.seed(RAND_SEED)
 
+'''
 NUM_CLUSTERS = 10
 GARBAGE_CLUSTERS = 10
 CLUSTER_SEQUENCE = [6,7,8,9]
 NUM_SEQS = 500 # number of macro segs
 NUM_GARBAGE = 10# number of garbage segs
 LEN_SEGMENT = 25 # length of each segment
+'''
 
 def createCorrect(outputFilename):
     ''' just creates in terms of cluster segments'''

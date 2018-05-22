@@ -4,9 +4,11 @@ import itertools
 import heapq
 import numpy as np
 from sklearn.metrics import f1_score, confusion_matrix, accuracy_score
+import matplotlib
+matplotlib.use('agg')
 from matplotlib import rcParams
 import matplotlib.pyplot as plt
-from generateDatasets.generate_synthetic import NUM_CLUSTERS, GARBAGE_CLUSTERS, NUM_SEQS, NUM_GARBAGE, LEN_SEGMENT, CLUSTER_SEQUENCE
+from generateDatasets.constants import NUM_CLUSTERS, GARBAGE_CLUSTERS, NUM_SEQS, NUM_GARBAGE, LEN_SEGMENT, CLUSTER_SEQUENCE
 rcParams.update({'figure.autolayout': True})
 
 FIGURE_COUNT = 1
@@ -161,19 +163,15 @@ def getValidMappings(correctFname, assignFname):
         plt.figure(FIGURE_COUNT)
         FIGURE_COUNT += 1
         plot_confusion_matrix(cf, list(range(NUM_CLUSTERS)),"blah", title='Confusion matrix specific', normalize=True)
-    print("---")
+    #print("---")
     print("only relevant: %s, all: %s, accuracy: %s" % (score, score2, score3))
-
+    return score, score2, score3
 
 if __name__ == "__main__":
-    assert len(sys.argv) == 4
-    directory = sys.argv[1]
-    gamma = sys.argv[2]
-    correct = sys.argv[3]
-    getValidMappings(correct,
-                 "%s/old/assign.out" % directory)
-    getValidMappings(correct,
-                 "%s/%s/assign.out" % (directory, gamma))
+    assert len(sys.argv) == 3
+    testfile = sys.argv[1]
+    correct = sys.argv[2]
+    getValidMappings(correct, testfile)
 if PLOT_CONF:
     plt.show()
 

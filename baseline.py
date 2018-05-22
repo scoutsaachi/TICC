@@ -1,6 +1,6 @@
 import numpy as np 
 from sklearn.cluster import KMeans
-from hmmlearn import GaussianHMM
+from hmmlearn.hmm import GaussianHMM
 from sklearn.mixture import GaussianMixture
 import sys
 
@@ -9,7 +9,7 @@ def getData(data_file):
     return data
 
 def performBaseline(data_file, out_file, baselineType="KMEANS", K=10):
-    data = np.loadtxt(data_file)
+    data = np.loadtxt(data_file, delimiter=",")
     labels=None
     if baselineType == "KMEANS":
         kmeans = KMeans(n_clusters=K, random_state=0, n_jobs=30)
