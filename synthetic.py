@@ -14,7 +14,7 @@ import os
 
 
 def dataset(mode, input_name, output_dir):
-    beta = 25 # used 50 for dataset 1
+    beta = 20 # used 20 earlier
     number_of_clusters = 10
     if mode == 1:
         outputName = "%s/old/assign.out" % output_dir

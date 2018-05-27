@@ -20,7 +20,7 @@ def performBaseline(data_file, out_file, baselineType="KMEANS", K=10):
         gmm.fit(data)
         labels = gmm.predict(data)
     elif baselineType == "HMM":
-        hmm = GaussianHMM(n_components=K, covariance_type="full", n_iter=100)
+        hmm = GaussianHMM(n_components=K, n_iter=100, random_state=100)
         hmm.fit(data)
         labels = hmm.predict(data)
     else:
@@ -32,15 +32,15 @@ def performBaseline(data_file, out_file, baselineType="KMEANS", K=10):
 if __name__ == "__main__":
     assert len(sys.argv) > 1
     directory = sys.argv[1]
-
-    mapping = {"KMEANS":"kmeans.out", "GMM": "gmm.out", "HMM": "hmm.out"}
+    mapping = {"HMM": "hmm.out"}
+    #mapping = {"KMEANS":"kmeans.out", "GMM": "gmm.out", "HMM": "hmm.out"}
     epsilons = ["0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9"]
     for e in epsilons:
         infile = "%s/%s/data.out" % (directory, e)
         for k,v in mapping.items():
             outname = "%s/%s/%s" % (directory, e, v)
             print(infile, outname, k)
-            performBaseline(infile, outname, k)
+            performBaseline(infile, outname, k, 8)
     '''
     assert len(sys.argv) > 3
     baseline = sys.argv[1]
