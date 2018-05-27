@@ -13,7 +13,7 @@ rcParams.update({'figure.autolayout': True})
 
 FIGURE_COUNT = 1
 PLOT_CONF = False
-VERBOSE = False
+VERBOSE = True
 STARTING_MOTIF = CLUSTER_SEQUENCE[0] # i.e 6
 
 
@@ -153,8 +153,10 @@ def getValidMappings(correctFname, assignFname):
     score = f1_score(correctAssigns, testMapped,
                      average='weighted', labels=cared_about_values)
     score2 = f1_score(correctAssigns, testMapped, average='weighted')
+    print(cared_about_values)
     correctMotifMask = getMask(correctAssigns)
     testMotifMask = getMask(testMapped)
+    #print(correctAssigns)
     #print(correctMotifMask, testMotifMask)
     score3 = accuracy_score(correctMotifMask, testMotifMask)
     cf = confusion_matrix(correctAssigns, testMapped)

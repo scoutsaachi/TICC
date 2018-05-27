@@ -16,6 +16,7 @@ def getScores(directory):
 
     correctname = "%s/correct.out" % directory
     for e in epsilons:
+        print(e)
         ticcscores = getValidMappings(correctname,  "%s/%s/old/assign.out" % (directory, e) )
         casc06scores =  getValidMappings(correctname,  "%s/%s/0.6/assign.out" % (directory, e) )
         casc08scores =  getValidMappings(correctname,  "%s/%s/0.8/assign.out" % (directory, e) )
