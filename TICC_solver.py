@@ -56,7 +56,7 @@ class TICCSolver:
             self.pool.join()
 
     def PerformFullTICC(self, initialClusteredPoints=None, useMotif=False):
-        train_cluster_inverse = motifs = motifsRanked=None
+        train_cluster_inverse = motifs = motifsRanked = None
         clustered_points = initialClusteredPoints
         if clustered_points is None:
             # perform no motif ticc
@@ -67,6 +67,7 @@ class TICCSolver:
             # perform secondary motif ticc if specified
             clustered_points, train_cluster_inverse, motifs, motifsRanked = self.solveWithInitialization(
                 clustered_points, useMotif=True)
+
         return clustered_points, train_cluster_inverse, motifs, motifsRanked
 
     def getInitialClusteredPoints(self):
@@ -78,7 +79,7 @@ class TICCSolver:
 
     def solveWithInitialization(self, clustered_points, useMotif):
         motifs = None
-        rankedMotifs=None
+        rankedMotifs = None
         assert self.maxIters > 0  # must have at least one iteration
         num_stacked = self.window_size
         beta = self.beta  # switching penalty
@@ -92,7 +93,8 @@ class TICCSolver:
         computed_cov = {}
         cluster_mean_stacked_info = {}
         clustered_point_historyN = 3
-        clustered_point_history = deque([None for i in range(clustered_point_historyN)])
+        clustered_point_history = deque(
+            [None for i in range(clustered_point_historyN)])
         empirical_covariances = {}
 
         # PERFORM TRAINING ITERATIONS
@@ -136,8 +138,11 @@ class TICCSolver:
                 stop_here = True
             clustered_point_history.popleft()
             clustered_point_history.append(before_zero)
-            if stop_here: break
-        
+            if stop_here:
+                break
+        bic = computeBIC(self.K, self.m, clustered_point_history[-1], train_cluster_inverse,
+                         empirical_covariances)
+        logging.info("BIC for beta %s clusters %s is %s" % (self.beta, self.K, bic))
         return (clustered_point_history[-1], train_cluster_inverse, motifs, rankedMotifs)
 
     def getLikelihood(self, computed_cov, cluster_mean_stacked_info, clustered_points):
@@ -174,17 +179,16 @@ class TICCSolver:
         '''
         normalizer = np.reshape(np.max(ll, axis=1), (ll.shape[0], 1))
         ll = ll - normalizer
-        ''' 
+        '''
         ll = np.exp(ll)
         '''
         sums = np.reshape(np.sum(ll, axis=1),(ll.shape[0], 1))
         ll = ll/sums
         '''
-        ll[ll<1e-320]=1e-320
-        assert np.all(ll>0)
+        ll[ll < 1e-320] = 1e-320
+        assert np.all(ll > 0)
         ll = -1*np.log(ll)
         return ll
-
 
     def assignToZeroClusters(self, clustered_points, old_computed_cov, computed_cov, cluster_mean_stacked_info):
         '''
