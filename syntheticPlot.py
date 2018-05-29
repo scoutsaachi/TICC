@@ -9,6 +9,7 @@ EPSILONS = np.arange(0, 0.8, 0.1).tolist()
 
 mapping = {
     'ticc': ('old/assign.out', "TICC"),
+    'casc04':('0.4/assign.out', "CASC, gamma = 0.4"),
     'casc06': ('0.6/assign.out', "CASC, gamma = 0.6"),
     'casc08': ('0.8/assign.out', "CASC, gamma = 0.8"),
     'casc99': ('0.99/assign.out', "CASC, gamma = 0.99"),
