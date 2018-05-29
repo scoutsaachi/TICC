@@ -4,7 +4,7 @@ import sys
 import pickle
 import os
 
-CLUSTER_NUMBER = 8
+CLUSTER_NUMBER = 10
 
 # def dataset2():
 # 	beta = 70
@@ -16,15 +16,16 @@ CLUSTER_NUMBER = 8
 
 
 def dataset(mode, input_name, output_dir):
-    beta = 40 # used 20 earlier
+    beta = 15 # used 40 earlier
     number_of_clusters = CLUSTER_NUMBER
     if mode == 1:
         outputName = "%s/old/assign.out" % output_dir
     else: outputName = runNonMotifTICC(input_name, output_dir, number_of_clusters, beta, None)
-    runHyperParameterTests(input_name, output_dir, number_of_clusters, beta, outputName)
+    if mode == 1: runHyperParameterTests(input_name, output_dir, number_of_clusters, beta, outputName)
 
 def runHyperParameterTests(inputName, outputDir, clusters, beta, oldAssignmentsName):
-    gammas = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.99]
+    gammas = [0.4, 0.6, 0.8, 0.99]
+    #gammas = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.99]
     motifReqs = 10
     for g in gammas:
         gammaDir = "%s/%s/" % (outputDir, g)
@@ -33,7 +34,7 @@ def runHyperParameterTests(inputName, outputDir, clusters, beta, oldAssignmentsN
                 beta, g, motifReqs, oldAssignmentsName, 10)
 
 def runBICTests(inputName, number_of_clusters):
-    beta = [60, 75, 100]
+    beta = [15, 25, 40, 60]
     bicBeta = []
     for b in beta:
         _, bic = runNonMotifTICC(inputName, None, number_of_clusters, b, None)
@@ -43,9 +44,11 @@ def runBICTests(inputName, number_of_clusters):
 
 
 def runNonMotifTICC(inputName, outputDir, clusters, beta, oldAssignmentsName):
-    oldDir = "%s/old/" % outputDir
-    makeDir(oldDir)
-    return runTest(0, inputName, oldDir, clusters, beta, 1, 1, oldAssignmentsName, 15)
+    if outputDir is not None: 
+        oldDir = "%s/old/" % outputDir
+        makeDir(oldDir)
+        outputDir = oldDir
+    return runTest(0, inputName, outputDir, clusters, beta, 1, 1, oldAssignmentsName, 15)
 
 def pickleObject(fname, data):
     f = open(fname, "wb")
@@ -76,7 +79,7 @@ def runTest(mode, inputName, outputDir, clusters, beta, gamma, motifReq, oldAssi
         pickleObject(motifFile, motifs)
         motifRanked = "%smotifRanked.pkl" % outputDir
         pickleObject(motifRanked, motifs)
-
+    outputName = None
     if outputDir is not None:
         outputName = "%sassign.out" % outputDir
         np.savetxt(outputName, cluster_assignment, fmt='%d')
