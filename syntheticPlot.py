@@ -94,7 +94,7 @@ def loadAndPlotScores(directory):
     plt.show()
 
 
-saveScores("ordered_synthetic", "final_scores_newset")
+saveScores("ordered_synthetic_retry2", "final_scores_retry2")
 # loadAndPlotScores("final_scores_perturbed_0.7_single_seq/macro_final_scores")
 # loadAndPlotScores("final_scores_perturbed_0.7_single_seq/micro_final_scores")
 #loadAndPlotScores("final_scores_perturbed_0.7_single_seq/weighted_final_scores")
