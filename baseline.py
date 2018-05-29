@@ -32,9 +32,10 @@ def performBaseline(data_file, out_file, baselineType="KMEANS", K=10):
 if __name__ == "__main__":
     assert len(sys.argv) > 1
     directory = sys.argv[1]
-    mapping = {"HMM": "hmm.out"}
-    #mapping = {"KMEANS":"kmeans.out", "GMM": "gmm.out", "HMM": "hmm.out"}
-    epsilons = ["0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9"]
+    #mapping = {"HMM": "hmm.out"}
+    mapping = {"KMEANS":"kmeans.out", "GMM": "gmm.out", "HMM": "hmm.out"}
+    epsilons = ["0.6", "0.7"]
+    #epsilons = ["0", "0.1", "0.2", "0.3", "0.4", "0.5", "0.6, 0.7"]
     for e in epsilons:
         infile = "%s/%s/data.out" % (directory, e)
         for k,v in mapping.items():

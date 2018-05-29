@@ -61,14 +61,14 @@ class TICCSolver:
         if clustered_points is None:
             # perform no motif ticc
             initialClusteredPoints = self.getInitialClusteredPoints()
-            clustered_points, train_cluster_inverse, _, _ = self.solveWithInitialization(
+            clustered_points, train_cluster_inverse, _, _, bic = self.solveWithInitialization(
                 initialClusteredPoints, useMotif=False)
         if useMotif:
             # perform secondary motif ticc if specified
-            clustered_points, train_cluster_inverse, motifs, motifsRanked = self.solveWithInitialization(
+            clustered_points, train_cluster_inverse, motifs, motifsRanked, bic = self.solveWithInitialization(
                 clustered_points, useMotif=True)
 
-        return clustered_points, train_cluster_inverse, motifs, motifsRanked
+        return clustered_points, train_cluster_inverse, motifs, motifsRanked, bic
 
     def getInitialClusteredPoints(self):
         gmm = mixture.GaussianMixture(
@@ -143,7 +143,7 @@ class TICCSolver:
         bic = computeBIC(self.K, self.m, clustered_point_history[-1], train_cluster_inverse,
                          empirical_covariances)
         logging.info("BIC for beta %s clusters %s is %s" % (self.beta, self.K, bic))
-        return (clustered_point_history[-1], train_cluster_inverse, motifs, rankedMotifs)
+        return (clustered_point_history[-1], train_cluster_inverse, motifs, rankedMotifs, bic)
 
     def getLikelihood(self, computed_cov, cluster_mean_stacked_info, clustered_points):
         '''

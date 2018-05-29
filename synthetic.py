@@ -4,6 +4,8 @@ import sys
 import pickle
 import os
 
+CLUSTER_NUMBER = 8
+
 # def dataset2():
 # 	beta = 70
 # 	inputName = "synthetic/dataset2/input.csv"
@@ -14,21 +16,31 @@ import os
 
 
 def dataset(mode, input_name, output_dir):
-    beta = 20 # used 20 earlier
-    number_of_clusters = 10
+    beta = 40 # used 20 earlier
+    number_of_clusters = CLUSTER_NUMBER
     if mode == 1:
         outputName = "%s/old/assign.out" % output_dir
     else: outputName = runNonMotifTICC(input_name, output_dir, number_of_clusters, beta, None)
     runHyperParameterTests(input_name, output_dir, number_of_clusters, beta, outputName)
 
 def runHyperParameterTests(inputName, outputDir, clusters, beta, oldAssignmentsName):
-    gammas = [0.6, 0.8]
+    gammas = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.99]
     motifReqs = 10
     for g in gammas:
         gammaDir = "%s/%s/" % (outputDir, g)
         makeDir(gammaDir)
         runTest(1, inputName, gammaDir, clusters,
                 beta, g, motifReqs, oldAssignmentsName, 10)
+
+def runBICTests(inputName, number_of_clusters):
+    beta = [60, 75, 100]
+    bicBeta = []
+    for b in beta:
+        _, bic = runNonMotifTICC(inputName, None, number_of_clusters, b, None)
+        bicBeta.append((bic, b))
+    bicBeta.sort(reverse=True)
+    print(bicBeta)
+
 
 def runNonMotifTICC(inputName, outputDir, clusters, beta, oldAssignmentsName):
     oldDir = "%s/old/" % outputDir
@@ -55,7 +67,7 @@ def runTest(mode, inputName, outputDir, clusters, beta, gamma, motifReq, oldAssi
     if mode == 1:
         old_assign = np.loadtxt(oldAssignmentsName, dtype=int)
         usemotif = True
-    (cluster_assignment, cluster_MRFs, motifs, motifRanked) = solver.PerformFullTICC(
+    (cluster_assignment, cluster_MRFs, motifs, motifRanked, bic) = solver.PerformFullTICC(
         initialClusteredPoints=old_assign, useMotif=usemotif)
     solver.CleanUp()
     if usemotif:
@@ -65,13 +77,20 @@ def runTest(mode, inputName, outputDir, clusters, beta, gamma, motifReq, oldAssi
         motifRanked = "%smotifRanked.pkl" % outputDir
         pickleObject(motifRanked, motifs)
 
-    outputName = "%sassign.out" % outputDir
-    np.savetxt(outputName, cluster_assignment, fmt='%d')
-    return outputName
+    if outputDir is not None:
+        outputName = "%sassign.out" % outputDir
+        np.savetxt(outputName, cluster_assignment, fmt='%d')
+    return outputName, bic
 
 if __name__ == "__main__":
     # mode of 1 to skip old assign
-    assert len(sys.argv) == 4
-    mode, input_fname, output_fdir = int(sys.argv[1]), sys.argv[2], sys.argv[3]
-    dataset(mode, input_fname, output_fdir)
+    assert len(sys.argv) > 1
+    mode = int(sys.argv[1])
+    if mode == 2: 
+        input_name = sys.argv[2]
+        runBICTests(input_name, CLUSTER_NUMBER)
+    else:
+        assert len(sys.argv) == 4
+        mode, input_fname, output_fdir = int(sys.argv[1]), sys.argv[2], sys.argv[3]
+        dataset(mode, input_fname, output_fdir)
 
