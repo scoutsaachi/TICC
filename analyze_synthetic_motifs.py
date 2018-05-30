@@ -32,7 +32,7 @@ def analyzeMotifs(motifFname):
 
 EPSILONS = np.arange(0, 0.8, 0.1).tolist()
 
-def getScores(directory):
+def getScores(directory, outputfile):
     epsilons = EPSILONS
     epsilons = ["%.1f" % e for e in epsilons]
     all_scores = [[],[],[]]
@@ -40,7 +40,7 @@ def getScores(directory):
         print(e)
         s = analyzeMotifs("%s/%s/motifs.pkl" % (directory, e))
         for i in range(len(s)): all_scores[i].append(s[i])
-    return all_scores
+    np.savetxt(outputfile, all_scores, delimiter=",")
 
 if __name__ == "__main__":
     fileDir = sys.argv[1]
