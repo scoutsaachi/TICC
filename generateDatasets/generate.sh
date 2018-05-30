@@ -6,5 +6,3 @@ python2.7 generate_synthetic.py 1 ../ordered_synthetic/correct.out 0.7 0.4 2 ../
 python2.7 generate_synthetic.py 1 ../ordered_synthetic/correct.out 0.7 0.5 2 ../ordered_synthetic/0.5/data.out
 python2.7 generate_synthetic.py 1 ../ordered_synthetic/correct.out 0.7 0.6 2 ../ordered_synthetic/0.6/data.out
 python2.7 generate_synthetic.py 1 ../ordered_synthetic/correct.out 0.7 0.7 2 ../ordered_synthetic/0.7/data.out
-python2.7 generate_synthetic.py 1 ../ordered_synthetic/correct.out 0.7 0.8 2 ../ordered_synthetic/0.8/data.out
-python2.7 generate_synthetic.py 1 ../ordered_synthetic/correct.out 0.7 0.9 2 ../ordered_synthetic/0.9/data.out
