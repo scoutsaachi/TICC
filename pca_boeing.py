@@ -1,21 +1,50 @@
-from sklearn.decomposition import PCA
+from sklearn.decomposition import IncrementalPCA
 import numpy as np
 import csv
+import pandas as pd
+import sys
 
-path = "/dfs/scratch0/dataset/20161030-Boeing/data/WD673_rt1.txt"
-#path="boeing.out"
+mode = int(sys.argv[1])
 
-arr = []
-with open(path, 'r') as f:
-	r = csv.reader(f, delimiter='\t', skipinitialspace=False)
-	for i, row in enumerate(r):
-		if i==0: continue
-		if i % 1000 == 0: print(i)
-		arr += [[float(v if v!= '' else 0) for v in row]]
+if mode == 0:
+   path = "/dfs/scratch0/dataset/20161030-Boeing/data/WD673_rt1.txt"
+   outfile = "boeing_pca.out"
+elif mode== 1:
+   path = "boeing_small.out"
+   outfile = "boeing_small_result.out"
+else:
+   path = "boeing.out"
+   outfile = "test.out"
 
-#inputdata = np.loadtxt(path, skiprows=1)
-arr = np.array(arr)
+BATCH_SIZE = 50000
+
+def transformChunk(c):
+    c.fillna(inplace=True, method="ffill")
+    c.fillna(inplace=True, value=0)
+
 dims = 13
-pca = PCA(n_components=dims)
-inputdata = pca.fit_transform(arr)
-np.savetxt("boeing/data.out", inputdata, delimiter=",")
+pca = IncrementalPCA(n_components=dims)
+
+reader = pd.read_csv(path, sep='\t', chunksize=BATCH_SIZE)
+for i, chunk in enumerate(reader):
+    transformChunk(chunk)
+    print("fitting", i)
+    pca.partial_fit(chunk)
+
+
+mean = pca.mean_
+stdv = np.sqrt(pca.var_)
+stdv[stdv==0] = 1.0
+
+transformed = None
+reader = pd.read_csv(path, sep='\t', chunksize=BATCH_SIZE)
+for i, chunk in enumerate(reader):
+    print("transforming", i)
+    transformChunk(chunk)
+    chunk = pca.transform((chunk.values-mean)/stdv)
+    if transformed is None: transformed = chunk
+    else: transformed = np.vstack((transformed, chunk))
+
+
+np.savetxt(outfile, transformed, delimiter=",")
+print(transformed.shape)

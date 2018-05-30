@@ -5,11 +5,12 @@ import heapq
 import numpy as np
 from sklearn.metrics import f1_score, confusion_matrix, accuracy_score
 import matplotlib
-matplotlib.use('agg')
+# matplotlib.use('agg')
 from matplotlib import rcParams
 import matplotlib.pyplot as plt
 from generateDatasets.constants import NUM_CLUSTERS, GARBAGE_CLUSTERS, NUM_SEQS, NUM_GARBAGE, LEN_SEGMENT, CLUSTER_SEQUENCE
 rcParams.update({'figure.autolayout': True})
+import pickle
 
 FIGURE_COUNT = 1
 PLOT_CONF = False
@@ -156,8 +157,6 @@ def getValidMappings(correctFname, assignFname):
     print(cared_about_values)
     correctMotifMask = getMask(correctAssigns)
     testMotifMask = getMask(testMapped)
-    #print(correctAssigns)
-    #print(correctMotifMask, testMotifMask)
     score3 = accuracy_score(correctMotifMask, testMotifMask)
     cf = confusion_matrix(correctAssigns, testMapped)
     global FIGURE_COUNT, PLOT_CONF
