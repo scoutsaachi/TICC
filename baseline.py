@@ -34,14 +34,13 @@ if __name__ == "__main__":
     directory = sys.argv[1]
     #mapping = {"HMM": "hmm.out"}
     mapping = {"KMEANS":"kmeans.out", "GMM": "gmm.out", "HMM": "hmm.out"}
-    epsilons = ["0.6", "0.7"]
-    #epsilons = ["0", "0.1", "0.2", "0.3", "0.4", "0.5", "0.6, 0.7"]
+    epsilons = ["0.0", "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7"]
     for e in epsilons:
         infile = "%s/%s/data.out" % (directory, e)
         for k,v in mapping.items():
             outname = "%s/%s/%s" % (directory, e, v)
             print(infile, outname, k)
-            performBaseline(infile, outname, k, 8)
+            performBaseline(infile, outname, k, 10)
     '''
     assert len(sys.argv) > 3
     baseline = sys.argv[1]

@@ -6,26 +6,19 @@ import os
 
 CLUSTER_NUMBER = 10
 
-# def dataset2():
-# 	beta = 70
-# 	inputName = "synthetic/dataset2/input.csv"
-# 	outputName = "synthetic/dataset2/old_assign.out"
-# 	number_of_clusters = 10
-# 	#runNonMotifTICC(inputName, outputName, number_of_clusters, beta, outputName)
-# 	runHyperParameterTests(inputName, "synthetic/dataset2/new_assign", number_of_clusters,beta,outputName)
-
-
 def dataset(mode, input_name, output_dir):
-    beta = 15 # used 40 earlier
+    beta = 50 # used 40 earlier
     number_of_clusters = CLUSTER_NUMBER
     if mode == 1:
         outputName = "%s/old/assign.out" % output_dir
-    else: outputName = runNonMotifTICC(input_name, output_dir, number_of_clusters, beta, None)
+    else:
+        outputName, bic = runNonMotifTICC(input_name, output_dir, number_of_clusters, beta, None)
+        print(bic)
     if mode == 1: runHyperParameterTests(input_name, output_dir, number_of_clusters, beta, outputName)
 
+
 def runHyperParameterTests(inputName, outputDir, clusters, beta, oldAssignmentsName):
-    gammas = [0.6, 0.99]
-    #gammas = [0.2, 0.3, 0.4, 0.5]
+    gammas = [0.4, 0.6, 0.8, 0.99]
     #gammas = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.99]
     motifReqs = 10
     for g in gammas:
@@ -78,8 +71,8 @@ def runTest(mode, inputName, outputDir, clusters, beta, gamma, motifReq, oldAssi
         # save the motifs and motifsRanked
         motifFile = "%smotifs.pkl" % outputDir
         pickleObject(motifFile, motifs)
-        motifRankedFile = "%smotifRanked.pkl" % outputDir
-        pickleObject(motifRankedFile, motifRanked)
+        motifRanked = "%smotifRanked.pkl" % outputDir
+        pickleObject(motifRanked, motifs)
     outputName = None
     if outputDir is not None:
         outputName = "%sassign.out" % outputDir
