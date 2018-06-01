@@ -16,7 +16,7 @@ CLUSTER_NUMBER = 10
 
 
 def dataset(mode, input_name, output_dir):
-    beta = 15 # used 40 earlier
+    beta = 25 # used 40 earlier
     number_of_clusters = CLUSTER_NUMBER
     if mode == 1:
         outputName = "%s/old/assign.out" % output_dir
@@ -24,10 +24,10 @@ def dataset(mode, input_name, output_dir):
     if mode == 1: runHyperParameterTests(input_name, output_dir, number_of_clusters, beta, outputName)
 
 def runHyperParameterTests(inputName, outputDir, clusters, beta, oldAssignmentsName):
-    #gammas = [0.6, 0.99]
+    gammas = [0.6, 0.8, 0.99]
     #gammas = [0.2, 0.3, 0.4, 0.5]
-    gammas = [0.7, 0.8, 0.9]
-    #gammas = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.99]
+    #gammas = [0.7, 0.8, 0.9]
+    #gammas = [0.2, 0.3,  0.5,  0.7, 0.9]
     motifReqs = 10
     for g in gammas:
         gammaDir = "%s/%s/" % (outputDir, g)
@@ -36,7 +36,7 @@ def runHyperParameterTests(inputName, outputDir, clusters, beta, oldAssignmentsN
                 beta, g, motifReqs, oldAssignmentsName, 10)
 
 def runBICTests(inputName, number_of_clusters):
-    beta = [15, 25, 40, 60]
+    beta = [25, 40, 60, 100]
     bicBeta = []
     for b in beta:
         _, bic = runNonMotifTICC(inputName, None, number_of_clusters, b, None)
@@ -95,7 +95,9 @@ if __name__ == "__main__":
         input_name = sys.argv[2]
         runBICTests(input_name, CLUSTER_NUMBER)
     else:
-        assert len(sys.argv) == 4
-        mode, input_fname, output_fdir = int(sys.argv[1]), sys.argv[2], sys.argv[3]
+        assert len(sys.argv) == 3
+        mode, fdir = int(sys.argv[1]), sys.argv[2]
+        input_fname = "%s/data.out" % fdir
+        output_fdir = "%s/" % fdir
         dataset(mode, input_fname, output_fdir)
 
