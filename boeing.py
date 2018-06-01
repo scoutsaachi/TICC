@@ -67,16 +67,18 @@ def runTest(mode, inputName, outputDir, clusters, beta, gamma, motifReq, oldAssi
     (cluster_assignment, cluster_MRFs, motifs, motifRanked, bic) = solver.PerformFullTICC(
         initialClusteredPoints=old_assign, useMotif=usemotif)
     solver.CleanUp()
-    if usemotif:
+    if usemotif and outputDir is not None:
         # save the motifs and motifsRanked
         motifFile = "%smotifs.pkl" % outputDir
         pickleObject(motifFile, motifs)
-        motifRanked = "%smotifRanked.pkl" % outputDir
-        pickleObject(motifRanked, motifs)
+        motifRankedName = "%smotifRanked.pkl" % outputDir
+        pickleObject(motifRankedName, motifRanked)
     outputName = None
     if outputDir is not None:
         outputName = "%sassign.out" % outputDir
         np.savetxt(outputName, cluster_assignment, fmt='%d')
+        outputName = "%sclusterMRFs" % outputDir
+        pickleObject(outputName, cluster_MRFs)
     return outputName, bic
 
 if __name__ == "__main__":

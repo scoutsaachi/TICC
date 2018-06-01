@@ -10,13 +10,15 @@ if mode == 0:
    path = "/dfs/scratch0/dataset/20161030-Boeing/data/WD673_rt1.txt"
    outfile = "boeing_pca.out"
 elif mode== 1:
-   path = "boeing_small.out"
-   outfile = "boeing_small_result.out"
+   path = "boeing_medium.out"
+   outfile = "boeing_medium_result.out"
 else:
    path = "boeing.out"
    outfile = "test.out"
 
 BATCH_SIZE = 50000
+
+sampleEvery = 10
 
 def transformChunk(c):
     c.fillna(inplace=True, method="ffill")
@@ -24,8 +26,9 @@ def transformChunk(c):
 
 dims = 13
 pca = IncrementalPCA(n_components=dims)
-
-reader = pd.read_csv(path, sep='\t', chunksize=BATCH_SIZE)
+skipRow = lambda x: x % sampleEvery != 0
+useCol = lambda x: x != 't' and x != 'flight_index' 
+reader = pd.read_csv(path, sep='\t', chunksize=BATCH_SIZE, skiprows=skipRow, usecols=useCol)
 for i, chunk in enumerate(reader):
     transformChunk(chunk)
     print("fitting", i)
@@ -37,7 +40,7 @@ stdv = np.sqrt(pca.var_)
 stdv[stdv==0] = 1.0
 
 transformed = None
-reader = pd.read_csv(path, sep='\t', chunksize=BATCH_SIZE)
+reader = pd.read_csv(path, sep='\t', chunksize=BATCH_SIZE, skiprows=skipRow, usecols=useCol)
 for i, chunk in enumerate(reader):
     print("transforming", i)
     transformChunk(chunk)
