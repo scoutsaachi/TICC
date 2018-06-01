@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib
-# matplotlib.use('agg')
+matplotlib.use('agg')
 import matplotlib.pyplot as plt
 from analyze_synthetic import getValidMappings 
 print("Started")
@@ -65,8 +65,7 @@ def loadAndPlotScores(directory):
         # plt.legend()
     plt.show()
 
-
-# saveScores("ordered_synthetic_retry2", "final_scores_retry2")
-loadAndPlotScores("final_scores_retry2")
+saveScores("ordered_synthetic_retry2", "final_scores_retry2")
+#loadAndPlotScores("final_scores_retry2")
 
 
