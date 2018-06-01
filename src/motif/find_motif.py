@@ -265,6 +265,7 @@ def find_motifs(sequence, motifReqs):
         log_prob_ind = getMotifIndepProb(motifReplaced,  logFreqProbs)
         # calculate pscore
         pscore = 1-poisson.cdf(numIncidences, totLength*np.exp(log_prob_ind))
+        #print("prelim", moduleCount, motif, motifReplaced, pscore, numIncidences, np.exp(log_prob_ind)*totLength,  np.exp(log_prob_ind), totLength)
         #pscore = 1-binom.cdf(numIncidences, totLength, np.exp(log_prob_ind))
         if pscore < alpha: # significant
             #print("----")

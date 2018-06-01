@@ -3,10 +3,11 @@ import numpy as np
 import sys
 from constants import NUM_CLUSTERS, GARBAGE_CLUSTERS, CLUSTER_SEQUENCE, NUM_SEQS, NUM_GARBAGE, LEN_SEGMENT
 
+DELTA = 0.6
 WINDOW_SIZE = 1
 NUM_SENSORS = 5
 SPARSITY = 0.2
-RAND_SEED = 21 # 20
+RAND_SEED = 30 # 21
 np.random.seed(RAND_SEED)
 
 '''
@@ -27,13 +28,12 @@ def createCorrect(outputFilename):
     # pre-pend with length
     np.savetxt(outputFilename, np.array(assigns), delimiter=",", fmt='%d')
 
-def createDataset(correctFileName, delta, eps, rho, outputFilename):
+def createDataset(correctFileName, eps, outputFilename):
     # delta: weight of other cluster that is being used to perturb
     # eps: fraction of motif segments being perterubed
     # rho: integer <= 4 which is number of legs we are perturbing
     # correctFilename: the ground truth
-
-    assert rho <= len(CLUSTER_SEQUENCE)
+    delta = DELTA
 
     groundTruth = []
     with open(correctFileName, 'r') as instream:
@@ -45,22 +45,29 @@ def createDataset(correctFileName, delta, eps, rho, outputFilename):
     for i in range(NUM_SEQS):
         segment = []
         macroSegment = groundTruth[i*lenMacro: (i+1)*lenMacro]
-        garbageSegment = macroSegment[:NUM_GARBAGE]
-        perturbs = macroSegment[NUM_GARBAGE:]
-        segment += [(a, None) for a in garbageSegment]
-        if np.random.random() > eps or rho == 0:
-            segment += [(a, None) for a in perturbs]
-        else:
-            perturbIndices = np.random.choice(np.arange(len(CLUSTER_SEQUENCE)), rho, replace=False)
-            for p in range(len(CLUSTER_SEQUENCE)):
-                if p in perturbIndices:
-                    # perturb this leg
-                    #l = [num for num in range(NUM_CLUSTERS) if num != perturbs[p]]
-                    chosenCluster = np.random.choice(CLUSTER_SEQUENCE[0])
-                    segment += [(perturbs[p], chosenCluster)]
-                else: segment += [(perturbs[p], None)]
-        #print(segment)
+        for clust in macroSegment:
+            otherClust = None
+            if np.random.random() < eps:
+                otherClust = np.random.choice(CLUSTER_SEQUENCE[0])
+            segment += [(clust, otherClust)]
         assigns += segment
+
+#         garbageSegment = macroSegment[:NUM_GARBAGE]
+#         perturbs = macroSegment[NUM_GARBAGE:]
+#         segment += [(a, None) for a in garbageSegment]
+#         if np.random.random() > eps or rho == 0:
+#             segment += [(a, None) for a in perturbs]
+#         else:
+#             perturbIndices = np.random.choice(np.arange(len(CLUSTER_SEQUENCE)), rho, replace=False)
+#             for p in range(len(CLUSTER_SEQUENCE)):
+#                 if p in perturbIndices:
+#                     # perturb this leg
+#                     #l = [num for num in range(NUM_CLUSTERS) if num != perturbs[p]]
+#                     chosenCluster = np.random.choice(CLUSTER_SEQUENCE[0])
+#                     segment += [(perturbs[p], chosenCluster)]
+#                 else: segment += [(perturbs[p], None)]
+#         #print(segment)
+#         assigns += segment
     assignment, _ = createSegments(assigns, LEN_SEGMENT)
     print(delta)
     generate_data(NUM_CLUSTERS, NUM_SENSORS, WINDOW_SIZE,
@@ -83,7 +90,10 @@ if __name__ == "__main__":
         outputFile = sys.argv[2]
         createCorrect(outputFile)
     else:
-        assert len(sys.argv) == 7
+        assert len(sys.argv) == 4
         # correctFileName, delta, eps, rho, outputFilename
-        corrfname, d, e, r, outputFilename = sys.argv[2], float(sys.argv[3]), float(sys.argv[4]), int(sys.argv[5]), sys.argv[6]
-        createDataset(corrfname, d, e, r, outputFilename)
+        outputDir, e = sys.argv[2], float(sys.argv[3])
+        corrfname = "%s/correct.out" % outputDir
+        outputFilename = "%s/%s/data.out" % (outputDir, sys.argv[3])
+        print(outputFilename)
+        createDataset(corrfname, e, outputFilename)
