@@ -24,9 +24,9 @@ def dataset(mode, input_name, output_dir):
     if mode == 1: runHyperParameterTests(input_name, output_dir, number_of_clusters, beta, outputName)
 
 def runHyperParameterTests(inputName, outputDir, clusters, beta, oldAssignmentsName):
-    gammas = [0.6, 0.8, 0.99]
-    #gammas = [0.2, 0.3, 0.4, 0.5]
-    #gammas = [0.7, 0.8, 0.9]
+    #gammas = [0.6, 0.8]
+    #gammas = [0.2, 0.3, 0.5]
+    gammas = [0.4]
     #gammas = [0.2, 0.3,  0.5,  0.7, 0.9]
     motifReqs = 10
     for g in gammas:
