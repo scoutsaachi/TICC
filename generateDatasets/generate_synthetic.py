@@ -7,7 +7,7 @@ DELTA = 0.6
 WINDOW_SIZE = 1
 NUM_SENSORS = 5
 SPARSITY = 0.2
-RAND_SEED = 30 # 21
+RAND_SEED = 30 # 30
 np.random.seed(RAND_SEED)
 
 '''

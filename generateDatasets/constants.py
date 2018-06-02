@@ -4,3 +4,5 @@ CLUSTER_SEQUENCE = [6,7,8,9]
 NUM_SEQS = 1000 # number of macro segs
 NUM_GARBAGE = 6# number of garbage segs
 LEN_SEGMENT = 15 # length of each segment
+
+
