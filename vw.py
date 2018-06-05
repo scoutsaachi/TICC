@@ -4,7 +4,7 @@ import sys
 import pickle
 import os
 
-CLUSTER_NUMBER = 10
+CLUSTER_NUMBER = 8
 
 def dataset(mode, input_name, output_dir):
     beta = 50 # used 40 earlier

@@ -26,7 +26,7 @@ def dataset(mode, input_name, output_dir):
 def runHyperParameterTests(inputName, outputDir, clusters, beta, oldAssignmentsName):
     #gammas = [0.6, 0.8]
     #gammas = [0.2, 0.3, 0.5]
-    gammas = [0.4]
+    gammas = [0.8]
     #gammas = [0.2, 0.3,  0.5,  0.7, 0.9]
     motifReqs = 10
     for g in gammas:
@@ -50,7 +50,7 @@ def runNonMotifTICC(inputName, outputDir, clusters, beta, oldAssignmentsName):
         oldDir = "%s/old/" % outputDir
         makeDir(oldDir)
         outputDir = oldDir
-    return runTest(0, inputName, outputDir, clusters, beta, 1, 1, oldAssignmentsName, 15)
+    return runTest(0, inputName, outputDir, clusters, beta, 1, 1, oldAssignmentsName, 5) # originally 15 its
 
 def pickleObject(fname, data):
     f = open(fname, "wb")
@@ -72,7 +72,7 @@ def runTest(mode, inputName, outputDir, clusters, beta, gamma, motifReq, oldAssi
     if mode == 1:
         old_assign = np.loadtxt(oldAssignmentsName, dtype=int)
         usemotif = True
-    (cluster_assignment, cluster_MRFs, motifs, motifRanked, bic) = solver.PerformFullTICC(
+    (cluster_assignment, cluster_MRFs, motifs, motifRanked, bic, _) = solver.PerformFullTICC(
         initialClusteredPoints=old_assign, useMotif=usemotif)
     solver.CleanUp()
     if usemotif:
