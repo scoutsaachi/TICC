@@ -29,7 +29,7 @@ def PerformAssignment(sequence, negLLMatrix, solver):
     _, collapsed = collapse(sequence)
     totLength = len(collapsed)
     # find common motifs with scores
-    motifs = find_motifs(sequence, solver.motifReq)
+    motifs = find_motifs(sequence, solver.motifReq, solver.maxMotifs)
     nMotifsFound = len(motifs)
     instanceList = []  # list of (score, motif, indices)
     garbageCol, betaGarbage = getGarbageCol(sequence, negLLMatrix, solver.beta, solver.gamma)
@@ -235,7 +235,6 @@ def find_motifs(sequence, motifReqs):
     motif_results = GetMotifs(collapsed)  # [(motif length), [<start_indices>]]
     motif_results.sort(key=lambda mr: mr[0]) # sort so that the shortest is first
     
-    #print([(k,np.exp(v)) for k,v in logFreqProbs.items()]) 
     # split the results into 2 motif and >2 motif results
     splitPoint = -1
     for i in range(len(motif_results)):
@@ -265,8 +264,6 @@ def find_motifs(sequence, motifReqs):
         log_prob_ind = getMotifIndepProb(motifReplaced,  logFreqProbs)
         # calculate pscore
         pscore = 1-poisson.cdf(numIncidences, totLength*np.exp(log_prob_ind))
-        #print("prelim", moduleCount, motif, motifReplaced, pscore, numIncidences, np.exp(log_prob_ind)*totLength,  np.exp(log_prob_ind), totLength)
-        #pscore = 1-binom.cdf(numIncidences, totLength, np.exp(log_prob_ind))
         if pscore < alpha: # significant
             #print("----")
             #print([(stage, np.exp(logFreqProbs[stage])) for stage in motifReplaced])           

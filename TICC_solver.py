@@ -5,7 +5,7 @@ import logging
 from scipy import stats
 
 from sklearn import mixture
-
+import time
 from multiprocessing import Pool
 from collections import deque
 from src.TICC_helper import *
@@ -58,6 +58,7 @@ class TICCSolver:
     def PerformFullTICC(self, initialClusteredPoints=None, useMotif=False):
         train_cluster_inverse = motifs = motifsRanked = None
         clustered_points = initialClusteredPoints
+        start = time.time()
         if clustered_points is None:
             # perform no motif ticc
             initialClusteredPoints = self.getInitialClusteredPoints()
@@ -67,8 +68,8 @@ class TICCSolver:
             # perform secondary motif ticc if specified
             clustered_points, train_cluster_inverse, motifs, motifsRanked, bic = self.solveWithInitialization(
                 clustered_points, useMotif=True)
-
-        return clustered_points, train_cluster_inverse, motifs, motifsRanked, bic
+        end = time.time()
+        return clustered_points, train_cluster_inverse, motifs, motifsRanked, bic, end - start
 
     def getInitialClusteredPoints(self):
         gmm = mixture.GaussianMixture(
