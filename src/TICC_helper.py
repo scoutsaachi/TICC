@@ -186,7 +186,6 @@ def computeBIC(K, T, clustered_points, inverse_covariances, empirical_covariance
     T is num samples
     '''
     mod_lle = 0
-    
     threshold = 2e-5
     clusterParams = {}
     for cluster, clusterInverse in inverse_covariances.items():
@@ -194,6 +193,28 @@ def computeBIC(K, T, clustered_points, inverse_covariances, empirical_covariance
         clusterParams[cluster] = np.sum(np.abs(clusterInverse) > threshold)
     curr_val = -1
     non_zero_params = 0
+    for val in clustered_points:
+        if val != curr_val:
+            non_zero_params += clusterParams[val]
+            curr_val = val
+    return non_zero_params * np.log(T) - 2*mod_lle
+
+def computeClusterBIC(K,T, clustered_points, inverse_covariances, empirical_covariances, motifs):
+    mod_lle = 0
+    threshold = 2e-5
+    clusterParams = {}
+    for cluster, clusterInverse in inverse_covariances.items():
+        mod_lle += np.log(np.linalg.det(clusterInverse)) - \
+            np.trace(np.dot(empirical_covariances[cluster], clusterInverse))
+        clusterParams[cluster] = np.sum(np.abs(clusterInverse) > threshold)
+    curr_val = -1
+    non_zero_params = 0
+    motifCounter = -1
+    for _, instances in motifs.items:
+        for start, end in instances:
+            clustered_points[start:end+1] = motifCounter
+        motifCounter -= 1
+
     for val in clustered_points:
         if val != curr_val:
             non_zero_params += clusterParams[val]
