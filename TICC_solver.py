@@ -143,8 +143,12 @@ class TICCSolver:
                 break
         bic = computeBIC(self.K, self.m, clustered_point_history[-1], train_cluster_inverse,
                          empirical_covariances)
+        clusterbic = None
+        if motifs is not None:
+            clusterbic = computeClusterBIC(
+                self.K, self.m, clustered_points, train_cluster_inverse, empirical_covariances, motifs)
         logging.info("BIC for beta %s clusters %s is %s" % (self.beta, self.K, bic))
-        return (clustered_point_history[-1], train_cluster_inverse, motifs, rankedMotifs, bic)
+        return (clustered_point_history[-1], train_cluster_inverse, motifs, rankedMotifs, (bic, clusterbic))
 
     def getLikelihood(self, computed_cov, cluster_mean_stacked_info, clustered_points):
         '''

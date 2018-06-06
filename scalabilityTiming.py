@@ -22,7 +22,7 @@ def runHyperParameterTests(inputName, outputDir, clusters, beta, oldAssignmentsN
     makeDir(gammaDir)
     _, _, t = runTest(1, inputName, gammaDir, clusters,
                 beta, g, motifReqs, oldAssignmentsName, 1)
-    f = open("chkpt.out", "a+")
+    f = open("chkptTemp.out", "a+")
     f.write("%s, %s\n" % (gammaDir, t))
     return t
 
@@ -58,7 +58,7 @@ def runTest(mode, inputName, outputDir, clusters, beta, gamma, motifReq, oldAssi
     #maxIters used to be 30
     print(oldAssignmentsName, inputName)
     solver = TICCSolver(window_size=1, number_of_clusters=clusters, lambda_parameter=1e-3, beta=beta, threshold=2e-5,
-                        gamma=gamma, input_file=inputName, num_proc=50, maxMotifs=50, motifReq=motifReq, maxIters=maxIters)
+                        gamma=gamma, input_file=inputName, num_proc=30, maxMotifs=25, motifReq=motifReq, maxIters=maxIters)
     old_assign = None
     usemotif = False
     if mode == 1:
