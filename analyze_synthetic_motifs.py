@@ -3,45 +3,88 @@ import numpy as np
 from sklearn.metrics import f1_score, accuracy_score
 from generateDatasets.constants import NUM_CLUSTERS, GARBAGE_CLUSTERS, NUM_SEQS, NUM_GARBAGE, LEN_SEGMENT, CLUSTER_SEQUENCE
 import pickle
+import matplotlib.pyplot as plt
+from collections import Counter
 
-
+GAMMAS = ["0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.99"]
 ONLY_PICK_BEST = False
 
-def analyzeMotifs(motifFname):
+TOTAL_N = (NUM_GARBAGE + len(CLUSTER_SEQUENCE))*LEN_SEGMENT*NUM_SEQS
+
+def getTrueResult():
     true_result = []
     for _ in range(NUM_SEQS):
         true_result += [0 for _ in range(NUM_GARBAGE*LEN_SEGMENT)]
         true_result += [1 for _ in range(len(CLUSTER_SEQUENCE)*LEN_SEGMENT)]
-    # true_result is the true motif assign vals
-    
+    return true_result
+
+def getMotifResult(motifFname, motifRankedFname):
     f = open(motifFname, "rb")
     motifs = pickle.load(f) 
-    motifResult = [0 for _ in range(len(true_result))]
+
+    f = open(motifRankedFname, "rb")
+    motifRanked = pickle.load(f)
+
+    motifResult = [0 for _ in range(TOTAL_N)]
     if ONLY_PICK_BEST:
-        lengths = sorted([(len(v),k) for k,v in motifs.items()], reverse=True)
-        top = lengths[0][1]
-        print(lengths[0])
+        top = motifRanked[0][0]
         motifs  = {top:motifs[top]}
     for k,v in motifs.items():
         for s, e in v:
             motifResult[s:e+1] = [1 for _ in range(s, e+1)]
-    allResult = [1 for _ in range(len(true_result))]
-    scores = [f1_score(true_result, motifResult), f1_score(true_result, allResult), accuracy_score(true_result, motifResult), accuracy_score(true_result, allResult)]
-    print("F1 Score: %s, Naive Score: %s, Accuracy Score: %s, Naive Accuracy score: %s" % tuple(scores))
-    return scores
+    return motifResult
 
-EPSILONS = np.arange(0, 0.8, 0.1).tolist()
+def getBaselineScore(baseline="WEIGHTED"):
+    true_result = getTrueResult()
+    count = Counter(true_result)
+    frac = float(count[1])/(count[0] + count[1])
+    if baseline == "ALL":
+        precision = frac
+        recall = 1
+        return (2*precision*recall/(precision+recall))
+    elif baseline == "WEIGHTED":
+        numOneCorrect = count[1]*frac # true positives
+        numOneIncorrect = count[0]*frac # false positives
+        precision = numOneCorrect/(numOneCorrect+numOneIncorrect)
+        recall = numOneCorrect/(count[1])
+        return ((2*precision*recall/(precision+recall)))
+    elif baseline == "RANDOM":
+        numOneCorrect = count[1]*0.5 # true positives
+        numOneIncorrect = count[0]*0.5 # false positives
+        precision = numOneCorrect/(numOneCorrect+numOneIncorrect)
+        recall = numOneCorrect/(count[1])
+        return ((2*precision*recall/(precision+recall)))
+    else:
+        assert False
 
-def getScores(directory, outputfile):
-    epsilons = EPSILONS
-    epsilons = ["%.1f" % e for e in epsilons]
-    all_scores = [[],[],[]]
-    for e in epsilons:
-        print(e)
-        s = analyzeMotifs("%s/%s/motifs.pkl" % (directory, e))
-        for i in range(len(s)): all_scores[i].append(s[i])
-    np.savetxt(outputfile, all_scores, delimiter=",")
+def getScores(directory, baselineType="WEIGHTED"):
+    cascscores = []
+    trueResult = getTrueResult()
+    baselineScore = getBaselineScore(baselineType)
+    print(baselineType, baselineScore)
+    baselines = [baselineScore for _ in range(len(GAMMAS))]
+    labels = [float(v) for v in GAMMAS]
+    for g in GAMMAS:
+        motifName = "%s/%s/motifs.pkl" % (directory, g)
+        motifRanksName = "%s/%s/motifRanked.pkl" % (directory, g)
+        motifResult = getMotifResult(motifName, motifRanksName)
+        cascscores.append(f1_score(trueResult, motifResult))
+
+    plt.figure(1, figsize=(7, 4))
+    print(cascscores)
+    plt.plot(GAMMAS, cascscores, '-bv', label='CASC')
+    # plt.plot(GAMMAS, baselines, '--', label='Random', color="orange")
+    # plt.plot(GAMMAS, all_scores[2], '-.', label='No motif')
+    plt.xlabel("$\gamma$")
+    plt.ylim(ymin=0.2, ymax=1)
+    plt.ylabel("F1 Score")
+    # plt.title("Motif Identification F1 vs $\gamma$, $\epsilon = 0.4$")
+    plt.legend(loc='lower center', ncol=2, fancybox=False, edgecolor="black")
+    plt.show()
+
+
+    # np.savetxt(outputfile, all_scores, delimiter=",")
 
 if __name__ == "__main__":
     fileDir = sys.argv[1]
-    analyzeMotifs(fileDir)
+    getScores(fileDir, "WEIGHTED")
