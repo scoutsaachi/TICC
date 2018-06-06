@@ -35,10 +35,10 @@ def PerformAssignment(sequence, negLLMatrix, solver):
     garbageCol, betaGarbage = getGarbageCol(sequence, negLLMatrix, solver.beta, solver.gamma)
     futures = [None]*nMotifsFound
     bigramProbs = computeBigramProbs(collapsed, K)
-    for i, motifTuple in enumerate(motifs):
+    for i, motif in enumerate(motifs):
         # motifTuple is motif lengths, motif
         futures[i] = solver.pool.apply_async(motifWorker,
-            (totLength, motifTuple, solver.beta, solver.gamma, negLLMatrix,
+            (totLength, motif, solver.beta, solver.gamma, negLLMatrix,
             garbageCol, betaGarbage, bigramProbs))
     instanceList = []
     for i in range(nMotifsFound):
@@ -61,15 +61,13 @@ def computeFinalMotifScores(final_assignment, motif_result, numClusters):
     return motif_scores
     
 
-def motifWorker(totLength, motifTuple, beta, gamma, negLLMatrix, garbageCol, betaGarbage, bigramProbs):
-    m, motifIncidenceLengths = motifTuple
+def motifWorker(totLength, m, beta, gamma, negLLMatrix, garbageCol, betaGarbage, bigramProbs):
     instanceList = []
-    motif_hmm = MotifHMM(negLLMatrix, m, beta, gamma,
-                         motifIncidenceLengths, garbageCol, betaGarbage)
+    motif_hmm = MotifHMM(negLLMatrix, m, beta, gamma, garbageCol, betaGarbage)
     _, motifInstances = motif_hmm.SolveAndReturn()  # (changepoints)
     score = MotifScore(totLength, bigramProbs, m, len(motifInstances))
     for motifIndices, neg_likelihood in motifInstances:
-        logodds = computeLogOdds(m, motifIncidenceLengths, motifIndices, garbageCol+np.log(gamma), negLLMatrix)
+        logodds = computeLogOdds(m, motifIndices, garbageCol+np.log(gamma), negLLMatrix)
         motifScore = logodds + score 
         instanceList.append((-1*motifScore, tuple(m), motifIndices))
     return instanceList
@@ -221,13 +219,13 @@ def getMotifStats(motifTuple, collapsed):
     motif = collapsed[incidences[0]:incidences[0]+length]
     return motif, numIncidences
 
-def find_motifs(sequence, motifReqs):
+def find_motifs(sequence, motifReqs, maxMotifs):
     '''
     Get the maximal motifs in the sequence along with their scores
 
     Returns
     -------
-    A list of [(motif, motifIncidenceLengths, logscore)]
+    A list of [(motif)]
     '''
     orig_indices, collapsed = collapse(sequence)
     logFreqProbs = getFrequencyProbs(collapsed)
@@ -268,12 +266,18 @@ def find_motifs(sequence, motifReqs):
             #print("----")
             #print([(stage, np.exp(logFreqProbs[stage])) for stage in motifReplaced])           
             print(moduleCount, motif, motifReplaced, pscore, numIncidences, np.exp(log_prob_ind)*totLength,  np.exp(log_prob_ind), totLength)
-            motifIncidenceLengths = inflateMotifLengths(incidences, orig_indices, len(motif))
-            candidates.append((motif, motifIncidenceLengths))
+#             motifIncidenceLengths = inflateMotifLengths(incidences, orig_indices, len(motif))
+#             candidates.append((motif, motifIncidenceLengths))
+            properLogProb = getMotifIndepProb(motif, logFreqProbs) # pscore without any components
+            properPscore = 1-poisson.cdf(numIncidences, totLength*np.exp(properLogProb))
+            candidates.append((properPscore,motif))
             addToLogFreqProbs(logFreqProbs, motif, moduleCount, numIncidences, totLength, candidateModules)
             moduleCount -= 1
-    return candidates
-
+    if maxMotifs is not None:
+        candidates.sort()
+        candidates = candidates[:maxMotifs]
+    print ("TOTAL is %s candidates" % len(candidates))
+    return [c[1] for c in candidates]
 
 def filterOverlapping(incidences, length):
     count = 1
@@ -394,7 +398,7 @@ def getMotifIndepProb(motif, logFreqProbs):
     return logscore_indep
 
 
-def computeLogOdds(motif, motifIncidenceLengths, motifIndices, garbageCol, negLLMatrix):
+def computeLogOdds(motif, motifIndices, garbageCol, negLLMatrix):
     negLLSubset = negLLMatrix[motifIndices[0]:motifIndices[-1]+1, :]
     n = negLLSubset.shape[0]
     expanded_seq = generateExpandedMotif(motif, motifIndices)

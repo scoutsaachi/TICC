@@ -71,14 +71,12 @@ class HMM:
 
 
 class MotifHMM(HMM):
-    def __init__(self, negLLMatrix, motif, beta, gamma, motifIncidenceLengths, garbage_col, betaGarbage):
+    def __init__(self, negLLMatrix, motif, beta, gamma, garbage_col, betaGarbage):
         '''
         construct HMM for motif model
         @params
         negLLMatrix: the negative log likelihood matrix per state
         motif: a list of cluster indices that are the motif. i.e [0,1,0] is A^* B^* A^*
-        motifIncidenceLengths: if there are K motif states and N incidences, an N x K matrix A where A[i,j] is the length of the jth motif segment 
-            in incidence i
         garbageCol: the garbage column's likelihoods
         betaGarbage: the timesteps where you should add beta to the transition
         '''
@@ -86,7 +84,6 @@ class MotifHMM(HMM):
         self.beta = beta
         self.motif = motif
         self.gamma = gamma
-        self.motifIncidenceLengths = motifIncidenceLengths
         adjacencyMatrix = self.createAdjacencyMatrix(motif)
         negLLMatrix, initDistribution = self.createNegLLMatrix(
             negLLMatrix, motif, garbage_col)
